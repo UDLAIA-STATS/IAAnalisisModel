@@ -1,12 +1,12 @@
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from app.layers.domain.collection.components.team import Team
+from app.layers.domain.player.team import Team
 from app.layers.domain.player.player import Player
 
-
-class Frame():
+@dataclass
+class FrameCollector():
     frame: int
-    teams: list[Team] = []
+    teams: list[Team] = field(default_factory=list)
     timestamp: float = field(default_factory=lambda: 0.0)
     
 
