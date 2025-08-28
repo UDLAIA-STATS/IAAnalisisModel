@@ -1,7 +1,6 @@
-from ast import List
 from dataclasses import dataclass, field
 import hashlib
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.layers.domain.player.iplayer import IPlayer
 
@@ -12,8 +11,30 @@ class Player(IPlayer):
     distance: Optional[float] 
     team: str
     team_color: Optional[List[float]] # RBG color
-    has_ball: bool
+    has_ball: bool = False
     timestamp: float = field(default_factory=lambda: 0.0)
+    
+    def __init__(self, id: int, bbox: List[float], position_2d: Tuple[float, float],
+                 position_adjusted_2d: Tuple[float, float], position_transformed_2d: Optional[List[float]] = None,
+                 speed: Optional[float] = None, distance: Optional[float] = None, 
+                 position_3d: Optional[List[float]] = None, position_adjusted_3d: Optional[List[float]] = None,
+                 position_transformed_3d: Optional[List[float]] = None,
+                 team: str = '', team_color: Optional[List[float]] = None, has_ball: bool = False,
+                 timestamp: float = 0.0):
+        self.id = id
+        self.bbox = bbox
+        self.position_2d = position_2d
+        self.position_adjusted_2d = position_adjusted_2d
+        self.position_transformed_2d = position_transformed_2d
+        self.speed = speed
+        self.distance = distance
+        self.position_3d = position_3d
+        self.position_adjusted_3d = position_adjusted_3d
+        self.position_transformed_3d = position_transformed_3d
+        self.team = team
+        self.team_color = team_color
+        self.has_ball = has_ball
+        self.timestamp = timestamp
     
     def __post_init__(self):
         """Validación y procesamiento post-inicialización"""
@@ -24,7 +45,7 @@ class Player(IPlayer):
     
     def get_hash(self) -> str:
         """Genera un hash único para el jugador basado en sus propiedades"""
-        data = f"{self.id}_{self.position}_{self.team_id}_{self.timestamp}"
+        data = f"{self.id}_{self.position_2d}_{self.team}_{self.timestamp}"
         return hashlib.md5(data.encode()).hexdigest()
     
     def get_center_position(self) -> Tuple[float, float]:
@@ -42,12 +63,12 @@ class Player(IPlayer):
         return {
             'id': self.id,
             'bbox': self.bbox,
-            'position': self.position,
-            'position_adjusted': self.position_adjusted,
-            'position_transformed': self.position_transformed,
+            'position': self.position_3d,
+            'position_adjusted': self.position_adjusted_3d,
+            'position_transformed': self.position_transformed_3d,
             'speed': self.speed,
             'distance': self.distance,
-            'team_id': self.team_id,
+            'team_id': self.team,
             'team_color': self.team_color,
             'timestamp': self.timestamp
         }
