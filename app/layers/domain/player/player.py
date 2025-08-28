@@ -1,11 +1,12 @@
 from ast import List
-from dataclasses import field
+from dataclasses import dataclass, field
 import hashlib
 from typing import Any, Dict, Optional, Tuple
 
 from app.layers.domain.player.iplayer import IPlayer
 
 
+@dataclass
 class Player(IPlayer):
     speed: Optional[float]
     distance: Optional[float] 
