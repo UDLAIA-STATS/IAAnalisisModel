@@ -176,6 +176,7 @@ cython_debug/
 app/res/input_videos/
 app/res/output_videos/
 app/res/stubs/
+
 app/res/temp/
 app/res/cache/
 
@@ -307,3 +308,6 @@ profile_results/
 tensorboard_logs/
 runs/
 events.out.tfevents.*
+=======
+
+app/tracks.json

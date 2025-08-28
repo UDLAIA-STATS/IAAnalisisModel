@@ -35,6 +35,7 @@ class FrameCollector():
         all_players = self.get_all_players()
         valid_players = [p for p in all_players if p.speed is not None]
         return sorted(valid_players, key=lambda p: p.speed if p.speed is not None else 0.0, reverse=descending)
+
     
     def get_frame_stats(self) -> Dict[str, Any]:
         """Obtiene estadísticas del frame"""

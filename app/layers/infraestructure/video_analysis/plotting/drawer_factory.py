@@ -12,6 +12,7 @@ from layers.infraestructure.video_analysis.plotting.voronoi_diagram_drawer impor
 class DrawerFactory:
     @staticmethod
     def run_drawer(drawer_type: str, players_tracks: Dict) -> None:
+
         diagram_map = {
             'voronoi': VoronoiDiagramDrawer,
             'heatmap': HeatmapDrawer,
