@@ -172,8 +172,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-app/res/input_videos/
-app/res/output_videos/
-app/res/stubs/
+app/res/input_videos/*
+app/res/output_videos/*
+app/res/stubs/*
+app/res/models/*
 
 app/tracks.json
