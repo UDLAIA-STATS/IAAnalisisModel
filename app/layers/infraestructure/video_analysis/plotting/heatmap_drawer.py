@@ -1,6 +1,6 @@
 # layers/infraestructure/video_analysis/plotting/heatmap_drawer.py
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 import pandas as pd
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
@@ -10,7 +10,7 @@ from layers.infraestructure.video_analysis.plotting.drawer_service import Drawer
 
 
 class HeatmapDrawer(Diagram):
-    def __init__(self, players_tracks: List[Dict[int, Dict[str, Any]]]):
+    def __init__(self, players_tracks: Dict):
         self.players_tracks = players_tracks
         self.save_path = '../app/res/output_videos/heatmap.png'
         self.drawer_service = DrawerService()
