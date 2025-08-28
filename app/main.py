@@ -36,7 +36,7 @@ def main():
         return
 
     # Initialize components
-    tracker = init_tracker(11, 'n', './res/models/yolo')
+    tracker = init_tracker(11, 'm', './res/models/yolo')
     view_transformer = ViewTransformer()
     speed_and_distance_estimator = SpeedAndDistance_Estimator()
     team_assigner = TeamAssigner()

@@ -13,20 +13,20 @@ class Team():
 
     def add_player(self, player: Player) -> None:
         """Añade un jugador al equipo"""
-        if player.team_id == self.team:
+        if player.team == self.team:
             self.players.append(player)
         else:
-            raise ValueError(f"Player team_id {player.team_id} doesn't match team id {self.team}")
+            raise ValueError(f"Player team_id {player.team} doesn't match team id {self.team}")
     
     def get_players_sorted_by_speed(self, descending: bool = True) -> List[Player]:
         """Obtiene jugadores ordenados por velocidad"""
         valid_players = [p for p in self.players if p.speed is not None]
-        return sorted(valid_players, key=lambda p: p.speed, reverse=descending)
+        return sorted(valid_players, key=lambda p: p.speed if p.speed is not None else 0.0, reverse=descending)
     
     def get_players_sorted_by_distance(self, descending: bool = True) -> List[Player]:
         """Obtiene jugadores ordenados por distancia"""
         valid_players = [p for p in self.players if p.distance is not None]
-        return sorted(valid_players, key=lambda p: p.distance, reverse=descending)
+        return sorted(valid_players, key=lambda p: p.distance if p.distance is not None else 0.0, reverse=descending)
     
     def get_team_stats(self) -> Dict[str, Any]:
         """Obtiene estadísticas del equipo"""

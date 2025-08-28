@@ -1,8 +1,8 @@
-from typing import List
+from typing import Dict, List
 from layers.infraestructure.video_analysis.plotting.drawer_factory import DrawerFactory
 
 
-def generate_diagrams(tracks: List, metrics: List) -> None:
+def generate_diagrams(tracks: Dict, metrics: Dict) -> None:
     try:
         DrawerFactory.run_drawer('voronoi', tracks['players'])
         DrawerFactory.run_drawer('heatmap', tracks['players'])
