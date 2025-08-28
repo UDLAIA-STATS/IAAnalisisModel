@@ -1,13 +1,15 @@
+from dataclasses import dataclass
 from typing import Any, Dict, List
 
 import numpy as np
+from sympy import field
 from app.layers.domain.player.player import Player
 
-
+@dataclass
 class Team():
     team: int
     team_name: str
-    players: list[Player] = []
+    players: list[Player] = field(default_factory=list)
 
     def add_player(self, player: Player) -> None:
         """Añade un jugador al equipo"""
