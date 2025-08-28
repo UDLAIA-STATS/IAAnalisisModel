@@ -14,11 +14,11 @@ from ultralytics.engine.results import Results
 from layers.infraestructure.video_analysis.services.bbox_processor_service import (
     get_bbox_width, get_center_of_bbox, get_foot_position)
 
-sys.path.append('../')
-
 class Tracker:
     def __init__(self, model_path: str):
-        self.model = YOLO(model_path) 
+        self.model = YOLO(model_path)
+        #self.metric = nn_matching.NearestNeighborDistanceMetric("cosine", 0.2, None)
+        #self.tracker = DeepSortTracker() 
         self.tracker = sv.ByteTrack()
 
     def add_position_to_tracks(self, tracks: dict[str, list]):
@@ -51,11 +51,11 @@ class Tracker:
 
         return ball_positions
 
-    def detect_frames(self, frames: list[MatLike]) -> list[Results]:
+    def detect_frames(self, frames: list[MatLike]):
         batch_size=20 
         detections: list[Results] = [] 
         for i in range(0, len(frames), batch_size):
-            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.1)
+            detections_batch = self.model.predict(frames[i:i+batch_size], conf = 0.1)
             detections += detections_batch
         return detections
 
@@ -63,13 +63,12 @@ class Tracker:
             self, 
             frames: list[MatLike], 
             read_from_stub: bool = False, 
-            stub_path: bool = None):
+            stub_path: str = ""):
         
         if read_from_stub and stub_path is not None and pathlib.Path(stub_path).exists():
             with open(stub_path,'rb') as f:
                 tracks = pickle.load(f)
             return tracks
-
         detections = self.detect_frames(frames)
 
         tracks={
@@ -77,19 +76,22 @@ class Tracker:
             "referees":[],
             "ball":[]
         }
+        
 
         for frame_num, detection in enumerate(detections):
             cls_names = detection.names
             cls_names_inv = {v:k for k,v in cls_names.items()}
+            print(cls_names_inv)
 
             # Covert to supervision Detection format
             detection_supervision = sv.Detections.from_ultralytics(detection)
 
+            print(detection_supervision.data.keys())
             # Convert GoalKeeper to player object
-            for object_ind , class_id in enumerate(detection_supervision.class_id):
+            for object_ind , class_id in enumerate(detection_supervision.class_id if detection_supervision.class_id is not None and detection_supervision.class_id.any() else []):
                 if cls_names[class_id] == "goalkeeper":
-                    detection_supervision.class_id[object_ind] = cls_names_inv["player"]
-
+                    detection_supervision.data['class_id'][object_ind] = cls_names_inv["player"]
+                    
             # Track Objects
             detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
 
@@ -103,10 +105,10 @@ class Tracker:
                 track_id = frame_detection[4]
 
                 if cls_id == cls_names_inv['player']:
-                    tracks["players"][frame_num][track_id] = {"bbox": bbox}
+                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
                 
                 if cls_id == cls_names_inv['referee']:
-                    tracks["referees"][frame_num][track_id] = {"bbox": bbox}
+                    tracks["referees"][frame_num][track_id] = {"bbox":bbox}
             
             for frame_detection in detection_supervision:
                 bbox = frame_detection[0].tolist()

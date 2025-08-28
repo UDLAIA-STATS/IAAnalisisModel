@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Optional
 from app.layers.domain.player.team import Team
 from app.layers.domain.player.player import Player
 
+import numpy as np
+
 @dataclass
 class FrameCollector():
     frame: int
@@ -32,7 +34,8 @@ class FrameCollector():
         """Obtiene todos los jugadores ordenados por velocidad"""
         all_players = self.get_all_players()
         valid_players = [p for p in all_players if p.speed is not None]
-        return sorted(valid_players, key=lambda p: p.speed, reverse=descending)
+        return sorted(valid_players, key=lambda p: p.speed if p.speed is not None else 0.0, reverse=descending)
+
     
     def get_frame_stats(self) -> Dict[str, Any]:
         """Obtiene estadísticas del frame"""

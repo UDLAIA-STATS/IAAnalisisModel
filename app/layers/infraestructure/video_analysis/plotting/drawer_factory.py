@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 from layers.infraestructure.video_analysis.plotting.ball_detection_metrics_drawer import BallDetectionMetricsDrawer
 from layers.infraestructure.video_analysis.plotting.interpolation_error_drawer import InterpolationErrorDrawer
 from layers.infraestructure.video_analysis.plotting.memory_usage_drawer import MemoryUsageDrawer
@@ -11,7 +11,8 @@ from layers.infraestructure.video_analysis.plotting.voronoi_diagram_drawer impor
 
 class DrawerFactory:
     @staticmethod
-    def run_drawer(drawer_type: str, players_tracks: List) -> None:
+    def run_drawer(drawer_type: str, players_tracks: Dict) -> None:
+
         diagram_map = {
             'voronoi': VoronoiDiagramDrawer,
             'heatmap': HeatmapDrawer,

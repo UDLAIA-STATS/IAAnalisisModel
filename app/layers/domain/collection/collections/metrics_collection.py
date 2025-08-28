@@ -1,4 +1,5 @@
-from app.layers.domain.utils.singleston import Singleton
+from app.layers.domain.utils.singleton import Singleton
+
 
 
 class MetricsCollection(metaclass=Singleton):
