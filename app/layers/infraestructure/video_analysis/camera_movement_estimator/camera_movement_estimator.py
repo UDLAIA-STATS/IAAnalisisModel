@@ -1,11 +1,13 @@
 import gc
-import pickle
 import sys
+import pickle
 
 import cv2
 import numpy as np
 import pathlib
 from cv2.typing import MatLike
+from torch import Size
+
 
 sys.path.append('../')
 from layers.infraestructure.video_analysis.services.bbox_processor_service import (
@@ -54,7 +56,7 @@ class CameraMovementEstimator():
             self,
             frames: list[MatLike],
             read_from_stub: bool = False,
-            stub_path: str = None):
+            stub_path: str = ""):
         # Read the stub 
         if read_from_stub and stub_path is not None and pathlib.Path(stub_path).exists():
             with pathlib.Path(stub_path).open('rb') as f:
@@ -63,21 +65,27 @@ class CameraMovementEstimator():
         camera_movement = [[0, 0]] * len(frames)
 
         old_gray = cv2.cvtColor(frames[0],cv2.COLOR_BGR2GRAY)
-        old_features = cv2.goodFeaturesToTrack(old_gray,**self.features)
+        old_features = cv2.goodFeaturesToTrack(old_gray, **self.features) #type: ignore 
 
         for frame_num in range(1, len(frames)):
             frame_gray = cv2.cvtColor(frames[frame_num],cv2.COLOR_BGR2GRAY)
-            new_features, _, _ = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, old_features, None, **self.lk_params)
+            new_features, _, _ = cv2.calcOpticalFlowPyrLK(
+                old_gray, 
+                frame_gray, 
+                old_features,  
+                None, # nextPts
+                **self.lk_params #type: ignore
+                )#type: ignore
             #new_features, _, _ = cv2.calcOpticalFlowFarneback(old_gray, frame_gray, old_features, None, **self.lk_params)
             #cv2.calcOpticalFlowFarneback returna un vector 2D
             max_distance = 0
             camera_movement_x, camera_movement_y = 0, 0
 
-            camera_movement_x, camera_movement_y, max_distance = self.update_camera_distance(self, new_features, old_features)
+            camera_movement_x, camera_movement_y, max_distance = self.update_camera_distance(new_features, old_features)
 
             if max_distance > self.minimum_distance:
-                camera_movement[frame_num] = [camera_movement_x, camera_movement_y]
-                old_features = cv2.goodFeaturesToTrack(frame_gray,**self.features) 
+                camera_movement[frame_num] = [camera_movement_x, camera_movement_y] #type: ignore
+                old_features = cv2.goodFeaturesToTrack(frame_gray, **self.features)  #type: ignore
 
             old_gray = frame_gray.copy()
         
@@ -120,7 +128,7 @@ class CameraMovementEstimator():
                 camera_movement_x = float(diff[0])
                 camera_movement_y = float(diff[1])
 
-        return camera_movement_x, camera_movement_y, max_distance
+        return camera_movement_x, camera_movement_y, float(max_distance)
 
 
     def draw_camera_movement(self, frames, camera_movement_per_frame):
