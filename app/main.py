@@ -29,6 +29,7 @@ def main():
         'velocity_inconsistencies': {'players': 0, 'referees': 0}
     }
     
+    
     # Read Video
     video_frames = read_video('./res/input_videos/08fd33_4.mp4')
     if not video_frames:
@@ -36,7 +37,8 @@ def main():
         return
 
     # Initialize components
-    tracker = init_tracker(11, 'm', './res/models/yolo')
+    tracker = Tracker("./res/models/best.pt")
+    
     view_transformer = ViewTransformer()
     speed_and_distance_estimator = SpeedAndDistance_Estimator()
     team_assigner = TeamAssigner()

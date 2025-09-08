@@ -17,9 +17,9 @@ from layers.infraestructure.video_analysis.services.bbox_processor_service impor
 class Tracker:
     def __init__(self, model_path: str):
         self.model = YOLO(model_path)
+        self.tracker = sv.ByteTrack()
         #self.metric = nn_matching.NearestNeighborDistanceMetric("cosine", 0.2, None)
         #self.tracker = DeepSortTracker() 
-        self.tracker = sv.ByteTrack()
 
     def add_position_to_tracks(self, tracks: dict[str, list]):
         for object, object_tracks in tracks.items():
