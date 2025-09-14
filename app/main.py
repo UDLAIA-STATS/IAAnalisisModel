@@ -7,7 +7,7 @@ from layers.infraestructure.validation.system_usage_validation import start_memo
 from layers.infraestructure.validation.velocity_consistence import check_speed_consistency
 from layers.presentation.diagram_processor import generate_diagrams
 from layers.presentation.tracker_initiation import init_tracker
-from layers.infraestructure.video_analysis.trackers.tracker import Tracker
+from layers.infraestructure.video_analysis.trackers.services.tracker_service import TrackerService
 
 from layers.infraestructure.video_analysis.services.video_processing_service import (
     read_video, save_video)
@@ -16,6 +16,8 @@ from layers.infraestructure.video_analysis.player_ball_assigner.player_ball_assi
 from layers.infraestructure.video_analysis.speed_and_distance_estimator.speed_and_distance_estimator import SpeedAndDistance_Estimator
 from layers.infraestructure.video_analysis.team_assigner.team_assigner import TeamAssigner
 from layers.infraestructure.video_analysis.view_transformer.view_transformer import ViewTransformer
+from layers.infraestructure.video_analysis.trackers.entities.ball_tracker import BallTracker
+from layers.infraestructure.video_analysis.trackers.entities.player_tracker import PlayerTracker
 
 def main():
     # Initialize metrics and performance tracking
@@ -37,7 +39,9 @@ def main():
         return
 
     # Initialize components
-    tracker = Tracker("./res/models/best.pt")
+    tracker = TrackerService("./res/models/best.pt")
+    tracker.create_tracker('players', PlayerTracker)
+    tracker.create_tracker('ball', BallTracker)
     
     view_transformer = ViewTransformer()
     speed_and_distance_estimator = SpeedAndDistance_Estimator()
@@ -51,6 +55,7 @@ def main():
         read_from_stub=True,
         stub_path='./res/stubs/track_stubs.pkl'
     )
+    
     
     # Get object positions 
     tracker.add_position_to_tracks(tracks)
@@ -68,7 +73,12 @@ def main():
 
     # Interpolate Ball Positions
     original_ball_tracks = tracks["ball"].copy()
-    tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
+    ball_tracker = tracker.get_tracker('ball')  
+    
+    if not isinstance(ball_tracker, BallTracker):
+        raise TypeError("Retrieved tracker is not an instance of BallTracker")
+    
+    tracks["ball"] = ball_tracker.interpolate_ball_positions(tracks["ball"])
     
     # Count ball detections (efficiently)
     detected_frames = sum(1 for frame in original_ball_tracks if 1 in frame)
@@ -116,7 +126,7 @@ def main():
     metrics['velocity_inconsistencies'] = check_speed_consistency(tracks)
     
     # Draw output 
-    output_video_frames = tracker.draw_annotations(video_frames, tracks, team_ball_control)
+    output_video_frames = tracker.get_tracker('players').draw_annotations(video_frames, tracks, team_ball_control)
     output_video_frames = camera_movement_estimator.draw_camera_movement(output_video_frames, camera_movement_per_frame)
     speed_and_distance_estimator.draw_speed_and_distance(output_video_frames, tracks)
 

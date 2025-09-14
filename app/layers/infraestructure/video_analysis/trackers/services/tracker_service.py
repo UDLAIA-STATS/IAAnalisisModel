@@ -8,8 +8,8 @@ from ultralytics.engine.results import Results
 
 from app.layers.domain.utils.singleton import Singleton
 from app.layers.infraestructure.video_analysis.services.bbox_processor_service import get_center_of_bbox, get_foot_position
-from app.layers.infraestructure.video_analysis.trackers.tracker import Tracker
-from app.layers.infraestructure.video_analysis.trackers.tracker_service_base import TrackerServiceBase
+from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker import Tracker
+from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker_service_base import TrackerServiceBase
 
 
 class TrackerService(TrackerServiceBase):
@@ -29,7 +29,7 @@ class TrackerService(TrackerServiceBase):
             tracks = self.read_tracks_from_stub(stub_path)
         
         if tracks is None:
-            tracks = {"players": [], "referees": [], "ball": []}
+            tracks = {"players": [], "ball": []}
         
         detections = self.detect_frames(frames)
 
@@ -40,7 +40,6 @@ class TrackerService(TrackerServiceBase):
 
             # Covert to supervision Detection format
             detection_supervision = sv.Detections.from_ultralytics(detection)
-
             print(detection_supervision.data.keys())
                     
             # Track Objects 
@@ -49,8 +48,8 @@ class TrackerService(TrackerServiceBase):
             tracks["players"].append({})
             tracks["ball"].append({})
 
-            for _, val in self.trackers.items():
-                track = val.get_object_tracks(
+            for _, val in enumerate(self.get_trackers()):
+                val.get_object_tracks(
                     detection_with_tracks=detection_with_tracks,
                     cls_names_inv=cls_names_inv,
                     frame_num=frame_num,

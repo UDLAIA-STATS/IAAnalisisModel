@@ -184,7 +184,7 @@ class Tracker:
 
         return frame
 
-    def draw_team_ball_control(self,frame,frame_num,team_ball_control):
+    def draw_team_ball_control(self, frame, frame_num, team_ball_control):
         # Draw a semi-transparent rectaggle 
         overlay = frame.copy()
         cv2.rectangle(overlay, (1350, 850), (1900,970), (255,255,255), -1 )
@@ -203,7 +203,7 @@ class Tracker:
 
         return frame
 
-    def draw_annotations(self,video_frames, tracks,team_ball_control):
+    def draw_annotations(self, video_frames, tracks,team_ball_control):
         output_video_frames= []
         for frame_num, frame in enumerate(video_frames):
             frame = np.copy(frame)
@@ -236,7 +236,5 @@ class Tracker:
 
             ## TODO Crear un módulo de limpieza de memoria
             # Clean memory every 50 frames to avoid memory leaks
-            if frame_num % 50 == 0:
-                gc.collect()
-
+          
         return output_video_frames
