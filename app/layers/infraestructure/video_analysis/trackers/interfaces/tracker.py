@@ -12,7 +12,7 @@ from cv2.typing import MatLike
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
-from layers.infraestructure.video_analysis.services.bbox_processor_service import (
+from layers.infraestructure.video_analysis.services import (
     get_bbox_width, get_center_of_bbox, get_foot_position)
 
 class Tracker(ABC):

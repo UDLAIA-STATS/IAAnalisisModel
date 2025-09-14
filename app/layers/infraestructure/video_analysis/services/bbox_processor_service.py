@@ -9,7 +9,7 @@ def get_center_of_bbox(bbox) -> tuple[int,int]:
 def get_bbox_width(bbox) -> int:
     return bbox[2] - bbox[0]
 
-def measure_scalar_distance(p1: np.ndarray, p2: np.ndarray) -> float:
+def measure_scalar_distance(p1, p2) -> float:
     """
     Calcula la distancia euclidiana entre dos puntos.
     
@@ -19,10 +19,7 @@ def measure_scalar_distance(p1: np.ndarray, p2: np.ndarray) -> float:
     Returns:
         Distancia euclidiana como float
     """
-    p1 = np.array(p1)
-    p2 = np.array(p2)
-    diff = p1 - p2
-    return np.linalg.norm(diff)
+    return float(np.linalg.norm(np.array(p1) - np.array(p2)))
 
 def measure_vectorial_distance(p1: np.ndarray, p2: np.ndarray) -> Tuple[float, float]:
     """

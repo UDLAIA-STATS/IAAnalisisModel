@@ -9,7 +9,6 @@ from cv2.typing import MatLike
 from torch import Size
 
 
-sys.path.append('../')
 from layers.infraestructure.video_analysis.services.bbox_processor_service import (
     measure_scalar_distance, measure_vectorial_distance)
 
@@ -73,7 +72,6 @@ class CameraMovementEstimator():
                 old_gray, 
                 frame_gray, 
                 old_features,  
-                None, # nextPts
                 **self.lk_params #type: ignore
                 )#type: ignore
             #new_features, _, _ = cv2.calcOpticalFlowFarneback(old_gray, frame_gray, old_features, None, **self.lk_params)

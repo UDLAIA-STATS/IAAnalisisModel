@@ -1,23 +1,18 @@
 import time
 import tracemalloc
 import numpy as np
-from cv2.typing import MatLike
-from layers.infraestructure.validation.interpolation_validation import calculate_interpolation_error
-from layers.infraestructure.validation.system_usage_validation import start_memory_usage
-from layers.infraestructure.validation.velocity_consistence import check_speed_consistency
-from layers.presentation.diagram_processor import generate_diagrams
-from layers.presentation.tracker_initiation import init_tracker
-from layers.infraestructure.video_analysis.trackers.services.tracker_service import TrackerService
+from layers.infraestructure.validation import calculate_interpolation_error, check_speed_consistency
+from app.layers.infraestructure.video_analysis.plotting import generate_diagrams
+from layers.infraestructure.video_analysis.trackers.services import TrackerService
 
-from layers.infraestructure.video_analysis.services.video_processing_service import (
+from layers.infraestructure.video_analysis.services import (
     read_video, save_video)
-from layers.infraestructure.video_analysis.camera_movement_estimator.camera_movement_estimator import CameraMovementEstimator
-from layers.infraestructure.video_analysis.player_ball_assigner.player_ball_assigner import PlayerBallAssigner
-from layers.infraestructure.video_analysis.speed_and_distance_estimator.speed_and_distance_estimator import SpeedAndDistance_Estimator
-from layers.infraestructure.video_analysis.team_assigner.team_assigner import TeamAssigner
-from layers.infraestructure.video_analysis.view_transformer.view_transformer import ViewTransformer
-from layers.infraestructure.video_analysis.trackers.entities.ball_tracker import BallTracker
-from layers.infraestructure.video_analysis.trackers.entities.player_tracker import PlayerTracker
+from layers.infraestructure.video_analysis.camera_movement_estimator import CameraMovementEstimator
+from layers.infraestructure.video_analysis.player_ball_assigner import PlayerBallAssigner
+from layers.infraestructure.video_analysis.speed_and_distance_estimator import SpeedAndDistance_Estimator
+from layers.infraestructure.video_analysis.team_assigner import TeamAssigner
+from layers.infraestructure.video_analysis.view_transformer import ViewTransformer
+from layers.infraestructure.video_analysis.trackers.entities import BallTracker, PlayerTracker
 
 def main():
     # Initialize metrics and performance tracking
