@@ -8,9 +8,9 @@ import supervision as sv
 
 from cv2.typing import MatLike
 from ultralytics.engine.results import Results
-from app.layers.infraestructure.video_analysis.services.bbox_processor_service import get_center_of_bbox, get_foot_position
-from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker import Tracker
-from app.layers.infraestructure.video_analysis.trackers.services.tracker_factory import TrackerFactory, TrackerFactoryError
+from app.layers.infraestructure.video_analysis.services import get_center_of_bbox, get_foot_position
+from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker
+from app.layers.infraestructure.video_analysis.trackers.services import TrackerFactory, TrackerFactoryError
 
 class TrackerServiceBase(metaclass=AbstractSingleton):
     def __init__(self, model_path: str):

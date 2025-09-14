@@ -1,15 +1,9 @@
-from pathlib import Path
 import pickle
 from typing import override
-from ultralytics import YOLO
 import supervision as sv
 from cv2.typing import MatLike
-from ultralytics.engine.results import Results
 
-from app.layers.domain.utils.singleton import Singleton
-from app.layers.infraestructure.video_analysis.services.bbox_processor_service import get_center_of_bbox, get_foot_position
-from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker import Tracker
-from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker_service_base import TrackerServiceBase
+from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker, TrackerServiceBase
 
 
 class TrackerService(TrackerServiceBase):

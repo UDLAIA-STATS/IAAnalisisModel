@@ -1,5 +1,5 @@
 import pandas as pd
-from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker import Tracker
+from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker
 
 import supervision as sv
 

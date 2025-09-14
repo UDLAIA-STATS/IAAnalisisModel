@@ -1,7 +1,7 @@
 from typing import Dict, List, Type
 
 from ultralytics import YOLO
-from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker import Tracker
+from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker
 
 class TrackerFactoryError(Exception):
     pass

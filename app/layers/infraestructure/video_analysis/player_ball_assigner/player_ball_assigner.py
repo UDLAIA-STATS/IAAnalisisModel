@@ -1,9 +1,7 @@
-import sys
 
 from layers.infraestructure.video_analysis.services.bbox_processor_service import (
     get_center_of_bbox, measure_scalar_distance)
 
-sys.path.append('../')
 class PlayerBallAssigner():
     def __init__(self):
         self.max_player_ball_distance = 70
