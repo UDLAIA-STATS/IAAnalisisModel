@@ -1,7 +1,4 @@
-import pathlib
-import pickle
-from cv2.typing import MatLike
-from app.layers.infraestructure.video_analysis.trackers.tracker import Tracker
+from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker import Tracker
 import supervision as sv
 
 class PlayerTracker(Tracker):
@@ -12,8 +9,11 @@ class PlayerTracker(Tracker):
         cls_names_inv: dict[str, int],
         frame_num: int,
         detection_supervision: sv.Detections,
-        tracks: dict = {"players":[],"referees":[],"ball":[]}, 
+        tracks: dict | None = None
         ):       
+        if tracks is None:
+            tracks = {"players": [], "ball": []}
+            
         for frame_detection in detection_with_tracks:
                 bbox = frame_detection[0].tolist()
                 cls_id = frame_detection[3]

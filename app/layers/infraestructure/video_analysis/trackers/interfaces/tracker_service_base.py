@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import pickle
-from typing import override
+from typing import List, Type, override
 from ultralytics import YOLO
 from app.layers.domain.utils.singleton import AbstractSingleton
 import supervision as sv
@@ -9,15 +9,14 @@ import supervision as sv
 from cv2.typing import MatLike
 from ultralytics.engine.results import Results
 from app.layers.infraestructure.video_analysis.services.bbox_processor_service import get_center_of_bbox, get_foot_position
-from app.layers.infraestructure.video_analysis.trackers.tracker import Tracker
-from app.layers.infraestructure.video_analysis.trackers.tracker_factory import TrackerFactory
+from app.layers.infraestructure.video_analysis.trackers.interfaces.tracker import Tracker
+from app.layers.infraestructure.video_analysis.trackers.services.tracker_factory import TrackerFactory, TrackerFactoryError
 
 class TrackerServiceBase(metaclass=AbstractSingleton):
     def __init__(self, model_path: str):
         self.model = YOLO(model_path)
         self.tracker = sv.ByteTrack()
-        self.trackers: dict[str, Tracker] = {} 
-        self.tracker_factory: TrackerFactory = TrackerFactory()
+        self.tracker_factory: TrackerFactory = TrackerFactory(self.model)
     
     @abstractmethod
     def get_object_tracks(
@@ -28,15 +27,25 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
         stub_path: str = ""
     ):
         if tracks is None:
-            tracks = {"players": [], "referees": [], "ball": []}
+            tracks = {"players": [], "ball": []}
         raise NotImplementedError
     
-    def create_tracker(self, tracker: str) -> None:
-        self.trackers[tracker] = self.tracker_factory.create_tracker(tracker)
+    def create_tracker(self, key: str, tracker_cls: Type[Tracker]) -> None:
+        try:
+            self.tracker_factory.register(key, tracker_cls)
+            self.tracker_factory.create(key)
+        except TrackerFactoryError as e:
+            print(f"Error creating tracker '{key}': {e}")
+        
     
-    def get_tracker(self, tracker: str) -> Tracker:
-        return self.trackers[tracker]
+    def get_tracker(self, key: str) -> Tracker:
+        tracker = self.tracker_factory.get_trackers().get(key)
+        if not tracker:
+            raise TrackerFactoryError(f"Tracker '{key}' is not registered.")
+        return tracker  
     
+    def get_trackers(self) -> List[Tracker]:
+        return list(self.tracker_factory.get_trackers().values())
     
     def add_position_to_tracks(self, tracks: dict[str, list]):
         for entity, tracked_objects in tracks.items():
