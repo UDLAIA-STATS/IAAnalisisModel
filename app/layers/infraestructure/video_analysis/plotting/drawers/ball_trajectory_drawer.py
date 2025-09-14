@@ -1,15 +1,17 @@
 # layers/infraestructure/video_analysis/plotting/improved_ball_trajectory_drawer.py
 
 from typing import Any, Dict, List, Tuple, Optional
+from matplotlib.axes import Axes
 import pandas as pd
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 import numpy as np
-import matplotlib.gridspec as gridspec
 
-class BallTrajectoryDrawer:
-    def __init__(self, players_tracks: List):
-        self.players_tracks = players_tracks
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
+
+class BallTrajectoryDrawer(Diagram):
+    def __init__(self, tracks: Dict):
+        super().__init__(tracks)
         self.base_save_path = '../app/res/output_videos/'
         self.ball_positions: List = []
         self.team_colors_map: Dict = {}
@@ -29,7 +31,7 @@ class BallTrajectoryDrawer:
         self._draw_minimaps_diagram()
 
     def _collect_ball_positions(self) -> None:
-        for frame_index, frame in enumerate(self.players_tracks):
+        for frame_index, frame in enumerate(self.tracks):
             ball_position = self._get_ball_position(frame, frame_index)
             if ball_position:
                 x, y, player_id, team_id = ball_position
@@ -83,12 +85,16 @@ class BallTrajectoryDrawer:
             pitch_type='statsbomb',
             pitch_color='#1e4251',
             line_color='white',
-            linewidth=1.5,
+            linewidth=1,
             axis=True,
             label=True,
             tick=True
         )
         pitch.draw(ax=ax)
+        
+        if self.df is None or self.df.empty:
+            print("No hay datos de trayectoria para dibujar.")
+            return
         
         # Dibujar trayectoria base
         if len(self.df) > 1:
@@ -135,6 +141,9 @@ class BallTrajectoryDrawer:
 
     def _draw_table_diagram(self) -> None:
         # Calcular posesión - USAR ACCESO POR LLAVES
+        if self.df is None or self.df.empty:
+            print("No hay datos de trayectoria para dibujar.")
+            return
         possession = self.df.groupby('player_id').size().reset_index(name='count')
         possession['percentage'] = (possession['count'] / len(self.df)) * 100
         possession = possession.sort_values('percentage', ascending=False)
@@ -210,12 +219,12 @@ class BallTrajectoryDrawer:
                    dpi=300, bbox_inches='tight', facecolor='#1e4251')
         plt.close()
 
-    def _draw_minimap(self, ax: plt.Axes, segment: pd.DataFrame, idx: int) -> None:
+    def _draw_minimap(self, ax: Axes, segment: pd.DataFrame, idx: int) -> None:
         pitch = Pitch(
             pitch_type='statsbomb',
             pitch_color='#2a5b6e',
             line_color='white',
-            linewidth=0.8,
+            linewidth=1,
             axis=False,
             label=False
         )

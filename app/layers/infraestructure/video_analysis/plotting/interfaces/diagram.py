@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
-from layers.infraestructure.video_analysis.plotting.drawer_service import DrawerService
+from typing import Dict
 
 
 class Diagram(ABC):
+    def __init__(self, tracks: Dict):
+        self.tracks = tracks
+    
     @abstractmethod
     def draw_and_save(self) -> None:
         pass

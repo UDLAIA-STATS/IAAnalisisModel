@@ -5,13 +5,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 
-from layers.infraestructure.video_analysis.plotting.diagram import Diagram
-from layers.infraestructure.video_analysis.plotting.drawer_service import DrawerService
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
+from layers.infraestructure.video_analysis.plotting.services.drawer_service import DrawerService
 
 
 class HeatmapDrawer(Diagram):
-    def __init__(self, players_tracks: Dict):
-        self.players_tracks = players_tracks
+    def __init__(self, tracks: Dict):
+        super().__init__(tracks)    
         self.save_path = '../app/res/output_videos/heatmap.png'
         self.drawer_service = DrawerService()
 
@@ -21,7 +21,7 @@ class HeatmapDrawer(Diagram):
     def _draw_heatmap(self) -> None:
         home_df, rival_df = pd.DataFrame(), pd.DataFrame()
 
-        for frame in self.players_tracks:
+        for frame in self.tracks:
             home_players, rival_players = self.drawer_service.process_frame(frame)
             home_df = pd.concat([home_df, home_players], ignore_index=True)
             rival_df = pd.concat([rival_df, rival_players], ignore_index=True)

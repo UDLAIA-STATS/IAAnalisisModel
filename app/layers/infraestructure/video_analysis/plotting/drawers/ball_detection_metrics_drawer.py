@@ -1,15 +1,15 @@
 from matplotlib import pyplot as plt
 
-from layers.infraestructure.video_analysis.plotting.diagram import Diagram
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
 
 
 class BallDetectionMetricsDrawer(Diagram):
-    def __init__(self, metrics: dict):
-        self.metrics = metrics
+    def __init__(self, tracks: dict):
+        super().__init__(tracks)
         self.save_path = '../app/res/output_videos/ball_detection.png'
     
     def draw_and_save(self) -> None:
-        detection = self.metrics['ball_detection']
+        detection = self.tracks['ball_detection']
         labels = ['Detectados', 'Interpolados']
         sizes = [detection['detected'], detection['interpolated']]
         
