@@ -1,15 +1,15 @@
 from matplotlib import pyplot as plt
 
-from layers.infraestructure.video_analysis.plotting.diagram import Diagram
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
 
 
 class VelocityConsistencyDrawer(Diagram):
-    def __init__(self, metrics: dict):
-        self.metrics = metrics
+    def __init__(self, tracks: dict):
+        super().__init__(tracks)
         self.save_path = '../app/res/output_videos/velocity_consistency.png'
     
     def draw_and_save(self) -> None:
-        inconsistencies = self.metrics['velocity_inconsistencies']
+        inconsistencies = self.tracks['velocity_inconsistencies']
         objects = ['Jugadores', 'Árbitros']
         counts = [inconsistencies['players'], inconsistencies['referees']]
         

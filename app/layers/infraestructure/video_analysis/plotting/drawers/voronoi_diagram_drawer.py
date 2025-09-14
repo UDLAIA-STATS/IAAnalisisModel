@@ -4,12 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 
-from layers.infraestructure.video_analysis.plotting.diagram import Diagram
-from layers.infraestructure.video_analysis.plotting.drawer_service import DrawerService
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
+from layers.infraestructure.video_analysis.plotting.services.drawer_service import DrawerService
 
 class VoronoiDiagramDrawer(Diagram):
-    def __init__(self, players_tracks: List[Dict[int, Dict[str, Any]]]):  # Cambiado a lista de frames
-        self.players_tracks = players_tracks
+    def __init__(self, tracks: Dict):  # Cambiado a lista de frames
+        super().__init__(tracks)
         self.home_team_color = 'blue'
         self.rival_team_color = 'red'
         self.save_path = '../app/res/output_videos/voronoi_diagram.png'
@@ -23,7 +23,7 @@ class VoronoiDiagramDrawer(Diagram):
         # (puedes modificarlo para procesar todos los frames)
         home_df, rival_df = pd.DataFrame(), pd.DataFrame()
 
-        for frame in self.players_tracks:
+        for frame in self.tracks:
             home_players, rival_players = self.drawer_service.process_frame(frame)
             home_df = pd.concat([home_df, home_players], ignore_index=False)
             rival_df = pd.concat([rival_df, rival_players], ignore_index=False)
