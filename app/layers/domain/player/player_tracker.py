@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from app.layers.domain.player.player import Player
+from layers.domain.player.player import Player
 
 @dataclass
 class PlayerTracker(Player):

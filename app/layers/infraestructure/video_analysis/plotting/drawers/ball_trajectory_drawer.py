@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 import numpy as np
 
-from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
+from layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
 
 class BallTrajectoryDrawer(Diagram):
     def __init__(self, tracks: Dict):

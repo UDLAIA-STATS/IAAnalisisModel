@@ -1,12 +1,9 @@
 from abc import ABC, abstractmethod
-import gc
 import pathlib
 import pickle
-import sys
 
 import cv2
 import numpy as np
-import pandas as pd
 import supervision as sv
 from cv2.typing import MatLike
 from ultralytics import YOLO

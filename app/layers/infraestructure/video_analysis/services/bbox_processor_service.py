@@ -1,5 +1,6 @@
 from typing import Tuple
 import numpy as np
+from scipy.spatial import distance as dist
 
 
 def get_center_of_bbox(bbox) -> tuple[int,int]:
@@ -19,7 +20,7 @@ def measure_scalar_distance(p1, p2) -> float:
     Returns:
         Distancia euclidiana como float
     """
-    return float(np.linalg.norm(np.array(p1) - np.array(p2)))
+    return dist.euclidean(p1, p2)
 
 def measure_vectorial_distance(p1: np.ndarray, p2: np.ndarray) -> Tuple[float, float]:
     """

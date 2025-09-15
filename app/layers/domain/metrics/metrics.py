@@ -1,4 +1,4 @@
-from app.layers.domain.metrics.imetrics import IMetrics
+from layers.domain.metrics.imetrics import IMetrics
 
 
 class Metrics(IMetrics):

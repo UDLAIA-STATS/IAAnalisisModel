@@ -1,4 +1,4 @@
-from app.layers.domain.utils.singleton import Singleton
+from layers.domain.utils.singleton import Singleton
 
 
 

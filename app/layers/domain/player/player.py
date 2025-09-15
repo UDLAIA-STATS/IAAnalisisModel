@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import hashlib
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.layers.domain.player.iplayer import IPlayer
+from layers.domain.player.iplayer import IPlayer
 
 
 @dataclass

@@ -1,4 +1,4 @@
-from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker
+from layers.infraestructure.video_analysis.trackers.interfaces import Tracker
 import supervision as sv
 
 class PlayerTracker(Tracker):

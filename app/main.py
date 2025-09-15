@@ -2,7 +2,7 @@ import time
 import tracemalloc
 import numpy as np
 from layers.infraestructure.validation import calculate_interpolation_error, check_speed_consistency
-from app.layers.infraestructure.video_analysis.plotting import generate_diagrams
+from layers.infraestructure.video_analysis.plotting import generate_diagrams
 from layers.infraestructure.video_analysis.trackers.services import TrackerService
 
 from layers.infraestructure.video_analysis.services import (
@@ -115,7 +115,7 @@ def main():
 
     # Calculate metrics
     metrics['interpolation_error'] = calculate_interpolation_error(
-        tracker,  # Pass tracker instance
+        ball_tracker,  # Pass tracker instance
         original_ball_tracks
     )
     metrics['velocity_inconsistencies'] = check_speed_consistency(tracks)

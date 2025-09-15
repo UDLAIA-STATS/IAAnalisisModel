@@ -3,7 +3,7 @@ from typing import override
 import supervision as sv
 from cv2.typing import MatLike
 
-from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker, TrackerServiceBase
+from layers.infraestructure.video_analysis.trackers.interfaces import TrackerServiceBase
 
 
 class TrackerService(TrackerServiceBase):

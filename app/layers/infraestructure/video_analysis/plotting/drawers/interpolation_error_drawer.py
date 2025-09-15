@@ -1,6 +1,6 @@
 from matplotlib import pyplot as plt
 
-from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
+from layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
 
 
 class InterpolationErrorDrawer(Diagram):
