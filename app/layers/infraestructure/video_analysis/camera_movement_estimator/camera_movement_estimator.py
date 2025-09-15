@@ -51,8 +51,7 @@ class CameraMovementEstimator():
             read_from_stub: bool = False,
             stub_path: str = ""):
         # Read the stub
-        if read_from_stub and stub_path is not None and pathlib.Path(
-                stub_path).exists():
+        if read_from_stub and stub_path is not None and pathlib.Path(stub_path).exists():
             with pathlib.Path(stub_path).open('rb') as f:
                 return pickle.load(f)
 
@@ -68,8 +67,9 @@ class CameraMovementEstimator():
                 old_gray,
                 frame_gray,
                 old_features,
+                None, # type: ignore
                 **self.lk_params  # type: ignore
-            )  # type: ignore
+            )  
             # new_features, _, _ =
             # cv2.calcOpticalFlowFarneback(old_gray, frame_gray,
             # old_features, None, **self.lk_params)

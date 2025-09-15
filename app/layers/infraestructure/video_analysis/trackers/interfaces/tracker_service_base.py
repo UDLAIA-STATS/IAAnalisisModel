@@ -72,7 +72,7 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
                     tracks[entity][frame_num][track_id]['position'] = position
 
     def read_tracks_from_stub(self, stub_path: str) -> dict:
-        tracks: dict = {"players": [], "referees": [], "ball": []}
+        tracks: dict = {"players": [], "ball": []}
         if stub_path and Path(stub_path).exists():
             with open(stub_path, 'rb') as f:
                 tracks = pickle.load(f)
