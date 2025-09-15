@@ -1,1 +1,1 @@
-from diagram import Diagram
+from .diagram import Diagram

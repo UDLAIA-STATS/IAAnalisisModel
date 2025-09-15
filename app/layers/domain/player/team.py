@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 from sympy import field
-from app.layers.domain.player.player import Player
+from layers.domain.player.player import Player
 
 @dataclass
 class Team():

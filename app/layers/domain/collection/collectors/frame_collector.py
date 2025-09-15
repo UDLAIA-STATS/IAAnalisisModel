@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from app.layers.domain.player.team import Team
-from app.layers.domain.player.player import Player
+from layers.domain.player.team import Team
+from layers.domain.player.player import Player
 
 import numpy as np
 

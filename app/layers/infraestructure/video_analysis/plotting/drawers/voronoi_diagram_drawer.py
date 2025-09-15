@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 
-from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
+from layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
 from layers.infraestructure.video_analysis.plotting.services.drawer_service import DrawerService
 
 class VoronoiDiagramDrawer(Diagram):

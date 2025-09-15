@@ -3,10 +3,10 @@ from typing import Any, Dict, Iterator, List, Optional
 
 import numpy as np
 
-from app.layers.domain.collection.collectors.frame_collector import FrameCollector
-from app.layers.domain.player.player import Player
-from app.layers.domain.player.team import Team
-from app.layers.domain.utils.deep_sort_tracker import DeepSortTracker
+from layers.domain.collection.collectors.frame_collector import FrameCollector
+from layers.domain.player.player import Player
+from layers.domain.player.team import Team
+from layers.domain.utils.deep_sort_tracker import DeepSortTracker
 
 class Collector():
     """

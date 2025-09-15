@@ -9,10 +9,6 @@ from cv2.typing import MatLike
 from torch import Size
 
 
-from layers.infraestructure.video_analysis.services.bbox_processor_service import (
-    measure_scalar_distance, measure_vectorial_distance)
-
-
 class CameraMovementEstimator():
     def __init__(self, frame: MatLike):
         self.minimum_distance = 5
@@ -42,7 +38,11 @@ class CameraMovementEstimator():
             camera_movement_per_frame):
         for object, object_tracks in tracks.items():
             for frame_num, track in enumerate(object_tracks):
-                camera_movement = camera_movement_per_frame[frame_num]
+                if frame_num < len(camera_movement_per_frame):
+                    camera_movement = camera_movement_per_frame[frame_num]
+                else:
+                    # If frame_num is out of range, assume no camera movement for this frame
+                    camera_movement = (0, 0)
                 dx, dy = camera_movement
                 for track_id, track_info in track.items():
                     x, y = track_info['position']

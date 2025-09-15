@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from app.layers.domain.collection.collectors.collector import Collector
-from app.layers.domain.utils.singleton import Singleton
+from layers.domain.collection.collectors.collector import Collector
+from layers.domain.utils.singleton import Singleton
 
 
 class PlayerCollection(metaclass=Singleton):

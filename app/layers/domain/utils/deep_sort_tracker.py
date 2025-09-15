@@ -2,9 +2,9 @@ from typing import List, Tuple
 
 import numpy as np
 
-from app.layers.domain.coordinates.bbox_coords import BoundingBoxCoordinates
-from app.layers.domain.player.player import Player
-from app.layers.domain.player.player_tracker import PlayerTracker
+from layers.domain.coordinates.bbox_coords import BoundingBoxCoordinates
+from layers.domain.player.player import Player
+from layers.domain.player.player_tracker import PlayerTracker
 
 
 class DeepSortTracker:

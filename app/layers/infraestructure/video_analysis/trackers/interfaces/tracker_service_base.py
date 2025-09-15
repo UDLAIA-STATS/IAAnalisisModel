@@ -1,22 +1,24 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import pickle
-from typing import List, Type, override
+from typing import List, Type
 from ultralytics import YOLO
-from app.layers.domain.utils.singleton import AbstractSingleton
+from layers.domain.utils.singleton import AbstractSingleton
 import supervision as sv
 
 from cv2.typing import MatLike
 from ultralytics.engine.results import Results
-from app.layers.infraestructure.video_analysis.services import get_center_of_bbox, get_foot_position
-from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker
-from app.layers.infraestructure.video_analysis.trackers.services import TrackerFactory, TrackerFactoryError
+from layers.infraestructure.video_analysis.services import get_center_of_bbox, get_foot_position
+from .tracker import Tracker
 
 class TrackerServiceBase(metaclass=AbstractSingleton):
     def __init__(self, model_path: str):
+        # Import locally to avoid circular import
+        from layers.infraestructure.video_analysis.trackers.services import TrackerFactory
+        
         self.model = YOLO(model_path)
         self.tracker = sv.ByteTrack()
-        self.tracker_factory: TrackerFactory = TrackerFactory(self.model)
+        self.tracker_factory = TrackerFactory(self.model)
     
     @abstractmethod
     def get_object_tracks(
@@ -31,6 +33,9 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
         raise NotImplementedError
     
     def create_tracker(self, key: str, tracker_cls: Type[Tracker]) -> None:
+        # Import locally to avoid circular import
+        from layers.infraestructure.video_analysis.trackers.services import TrackerFactoryError
+        
         try:
             self.tracker_factory.register(key, tracker_cls)
             self.tracker_factory.create(key)
@@ -39,10 +44,13 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
         
     
     def get_tracker(self, key: str) -> Tracker:
+        # Import locally to avoid circular import
+        from layers.infraestructure.video_analysis.trackers.services import TrackerFactoryError
+        
         tracker = self.tracker_factory.get_trackers().get(key)
         if not tracker:
             raise TrackerFactoryError(f"Tracker '{key}' is not registered.")
-        return tracker  
+        return tracker
     
     def get_trackers(self) -> List[Tracker]:
         return list(self.tracker_factory.get_trackers().values())

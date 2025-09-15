@@ -1,6 +1,8 @@
 import numpy as np
 
-def calculate_interpolation_error(tracker, original_tracks):
+from layers.infraestructure.video_analysis.trackers.entities.ball_tracker import BallTracker
+
+def calculate_interpolation_error(tracker: BallTracker, original_tracks):
     interpolated_tracks = tracker.interpolate_ball_positions(original_tracks.copy())
     errors = []
     

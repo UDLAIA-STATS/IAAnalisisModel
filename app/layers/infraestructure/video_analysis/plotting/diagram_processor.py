@@ -1,5 +1,5 @@
 from typing import Dict
-from app.layers.infraestructure.video_analysis.plotting.drawers import (
+from layers.infraestructure.video_analysis.plotting.drawers import (
     BallDetectionMetricsDrawer, 
     BallTrajectoryDrawer, 
     HeatmapDrawer,
@@ -7,7 +7,7 @@ from app.layers.infraestructure.video_analysis.plotting.drawers import (
     VelocityConsistencyDrawer,
     VoronoiDiagramDrawer
 )
-from app.layers.infraestructure.video_analysis.plotting.services import DrawerFactory
+from layers.infraestructure.video_analysis.plotting.services import DrawerFactory
 
 
 def generate_diagrams(tracks: Dict, metrics: Dict) -> None:
