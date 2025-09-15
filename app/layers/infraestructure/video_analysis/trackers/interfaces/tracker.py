@@ -1,5 +1,3 @@
-import pathlib
-import pickle
 from abc import ABC, abstractmethod
 
 import cv2
@@ -7,7 +5,8 @@ import numpy as np
 import supervision as sv
 from cv2.typing import MatLike
 from layers.infraestructure.video_analysis.services import (get_bbox_width,
-                                                            get_center_of_bbox)
+                                                            get_center_of_bbox,
+                                                            read_stub, save_stub)
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
@@ -33,17 +32,15 @@ class Tracker(ABC):
 
     def read_tracks_from_stub(self, stub_path: str) -> dict:
         tracks: dict = {"players": [], "referees": [], "ball": []}
-        if stub_path is not None and pathlib.Path(stub_path).exists():
-            with open(stub_path, 'rb') as f:
-                tracks = pickle.load(f)
-            return tracks
+        if stub_path is not None:
+            temp = read_stub(stub_path)
+            tracks = temp if temp is not None else tracks
         print("Tracks are: ", tracks)
         return tracks
 
     def save_tracks_to_stub(self, tracks: dict, stub_path: str):
         if stub_path is not None:
-            with open(stub_path, 'wb') as f:
-                pickle.dump(tracks, f)
+            save_stub(tracks, stub_path)
 
     def detect_frames(self, frames: list[MatLike]):
         batch_size = 20
