@@ -8,7 +8,7 @@ class Metrics(IMetrics):
         self.interpolation_error = 0.0
         self.ball_detection = {'detected': 0, 'interpolated': 0}
         self.velocity_inconsistencies = {'players': 0, 'referees': 0}
-    
+
     def update_ball_detection(self, detected: int, interpolated: int):
         self.ball_detection['detected'] += detected
         self.ball_detection['interpolated'] += interpolated

@@ -1,5 +1,6 @@
-import numpy as np
 import cv2
+import numpy as np
+
 
 class ViewTransformer:
     def __init__(self):
@@ -20,12 +21,12 @@ class ViewTransformer:
             [0, COURT_WIDTH],         # Bottom-left
             [0, 0],                    # Top-left
             [COURT_LENGTH, 0],         # Top-right
-            [COURT_LENGTH, COURT_WIDTH] # Bottom-right
+            [COURT_LENGTH, COURT_WIDTH]  # Bottom-right
         ], dtype=np.float32)
 
         # Create perspective transformation matrix
         self.perspective_transform = cv2.getPerspectiveTransform(
-            self.pixel_vertices, 
+            self.pixel_vertices,
             self.target_vertices
         )
 
@@ -33,20 +34,20 @@ class ViewTransformer:
         """Transform a point from image coordinates to court coordinates"""
         # Convert to integer for polygon test
         int_point = (int(point[0]), int(point[1]))
-        
+
         # Check if point is within the court boundaries
         if cv2.pointPolygonTest(self.pixel_vertices, int_point, False) < 0:
             return None
 
         # Reshape point to OpenCV format: (1, 1, 2)
         reshaped_point = point.reshape(-1, 1, 2).astype(np.float32)
-        
+
         # Apply perspective transformation
         transformed_point = cv2.perspectiveTransform(
-            reshaped_point, 
+            reshaped_point,
             self.perspective_transform
         )
-        
+
         # Return as flat (x,y) coordinates
         return transformed_point.reshape(-1, 2)
 
@@ -56,14 +57,17 @@ class ViewTransformer:
             for frame_idx, frame_tracks in enumerate(object_tracks):
                 for track_id, track_info in frame_tracks.items():
                     # Get adjusted position from tracking data
-                    position_adjusted = np.array(track_info['position_adjusted'])
-                    
+                    position_adjusted = np.array(
+                        track_info['position_adjusted'])
+
                     # Transform to court coordinates
-                    position_transformed = self.transform_point(position_adjusted)
-                    
+                    position_transformed = self.transform_point(
+                        position_adjusted)
+
                     # Store result (converted to list if valid)
                     track_info['position_transformed'] = (
-                        position_transformed.squeeze().tolist() 
-                        if position_transformed is not None 
+                        position_transformed.squeeze().tolist()
+
+                        if position_transformed is not None
                         else None
                     )

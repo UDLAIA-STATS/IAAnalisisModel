@@ -1,13 +1,10 @@
 from typing import Dict
+
 from layers.infraestructure.video_analysis.plotting.drawers import (
-    BallDetectionMetricsDrawer, 
-    BallTrajectoryDrawer, 
-    HeatmapDrawer,
-    InterpolationErrorDrawer,
-    VelocityConsistencyDrawer,
-    VoronoiDiagramDrawer
-)
-from layers.infraestructure.video_analysis.plotting.services import DrawerFactory
+    BallDetectionMetricsDrawer, BallTrajectoryDrawer, HeatmapDrawer,
+    InterpolationErrorDrawer, VelocityConsistencyDrawer, VoronoiDiagramDrawer)
+from layers.infraestructure.video_analysis.plotting.services import \
+    DrawerFactory
 
 
 def generate_diagrams(tracks: Dict, metrics: Dict) -> None:
@@ -15,8 +12,8 @@ def generate_diagrams(tracks: Dict, metrics: Dict) -> None:
         DrawerFactory.run_drawer(VoronoiDiagramDrawer, tracks['players'])
         DrawerFactory.run_drawer(HeatmapDrawer, tracks['players'])
         DrawerFactory.run_drawer(BallTrajectoryDrawer, tracks['players'])
-        #DrawerFactory.run_drawer('processing_time', metrics)
-        #DrawerFactory.run_drawer('memory_usage', metrics)
+        # DrawerFactory.run_drawer('processing_time', metrics)
+        # DrawerFactory.run_drawer('memory_usage', metrics)
         DrawerFactory.run_drawer(BallDetectionMetricsDrawer, metrics)
         DrawerFactory.run_drawer(VelocityConsistencyDrawer, metrics)
         DrawerFactory.run_drawer(InterpolationErrorDrawer, metrics)

@@ -1,6 +1,8 @@
-from cv2.typing import MatLike
-import cv2
 import pathlib
+
+import cv2
+from cv2.typing import MatLike
+
 
 def read_video(video_path: str) -> list[MatLike]:
     cap = cv2.VideoCapture(video_path)
@@ -12,13 +14,19 @@ def read_video(video_path: str) -> list[MatLike]:
         frames.append(frame)
     return frames
 
+
 def save_video(ouput_video_frames, output_video_path: str):
     folder = pathlib.Path(output_video_path).parent
     if not folder.exists():
         folder.mkdir(parents=True, exist_ok=True)
-    
+
     fourcc = cv2.VideoWriter.fourcc(*'XVID')
-    out = cv2.VideoWriter(output_video_path, fourcc, 24, (ouput_video_frames[0].shape[1], ouput_video_frames[0].shape[0]))
+    out = cv2.VideoWriter(
+        output_video_path,
+        fourcc,
+        24,
+        (ouput_video_frames[0].shape[1],
+         ouput_video_frames[0].shape[0]))
     for frame in ouput_video_frames:
         out.write(frame)
     out.release()

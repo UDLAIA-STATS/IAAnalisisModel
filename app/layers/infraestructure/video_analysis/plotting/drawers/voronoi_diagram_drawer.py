@@ -1,11 +1,13 @@
-from typing import Any, List, Dict
-import pandas as pd
-import numpy as np
+from typing import Dict
+
 import matplotlib.pyplot as plt
+import pandas as pd
+from layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+    Diagram
+from layers.infraestructure.video_analysis.plotting.services.drawer_service import \
+    DrawerService
 from mplsoccer import Pitch
 
-from layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
-from layers.infraestructure.video_analysis.plotting.services.drawer_service import DrawerService
 
 class VoronoiDiagramDrawer(Diagram):
     def __init__(self, tracks: Dict):  # Cambiado a lista de frames
@@ -24,11 +26,11 @@ class VoronoiDiagramDrawer(Diagram):
         home_df, rival_df = pd.DataFrame(), pd.DataFrame()
 
         for frame in self.tracks:
-            home_players, rival_players = self.drawer_service.process_frame(frame)
+            home_players, rival_players = self.drawer_service.process_frame(
+                frame)
             home_df = pd.concat([home_df, home_players], ignore_index=False)
             rival_df = pd.concat([rival_df, rival_players], ignore_index=False)
 
-        
         if home_df.empty and rival_df.empty:
             print("No players data available to draw Voronoi diagram.")
             return
@@ -38,31 +40,47 @@ class VoronoiDiagramDrawer(Diagram):
         ax.patch.set_facecolor('white')
 
         pitch = Pitch(
-            pitch_type='statsbomb', 
-            pitch_color='#1e4251',#'grass', 
+            pitch_type='statsbomb',
+            pitch_color='#1e4251',  # 'grass',
             line_color='white',
-            positional=True, 
-            axis=True, 
-            label=True, 
-            tick=True, 
-            #stripe=True
+            positional=True,
+            axis=True,
+            label=True,
+            tick=True,
+            # stripe=True
         )
         pitch.draw(ax=ax)
 
         # Combinar todos los jugadores para Voronoi
         all_players = pd.concat([home_df, rival_df])
         home_team, rival_team = pitch.voronoi(
-            all_players.x, 
-            all_players.y, 
+            all_players.x,
+            all_players.y,
             all_players.team
         )
 
         # Obtener colores únicos por equipo
-        home_color =  home_df['color'].values[0] if not home_df.empty else self.home_team_color
-        rival_color = rival_df['color'].values[0] if not rival_df.empty else self.rival_team_color
+        home_color = (home_df['color'].values[0]
+                      if not home_df.empty
+                      else self.home_team_color)
+        rival_color = (rival_df['color'].values[0]
+                       if not rival_df.empty
+                       else self.rival_team_color)
 
-        pitch.polygon(home_team, ax=ax, fc=home_color, ec='white', lw=2, alpha=0.5)
-        pitch.polygon(rival_team, ax=ax, fc=rival_color, ec='white', lw=2, alpha=0.5)
-        
+        pitch.polygon(
+            home_team,
+            ax=ax,
+            fc=home_color,
+            ec='white',
+            lw=2,
+            alpha=0.5)
+        pitch.polygon(
+            rival_team,
+            ax=ax,
+            fc=rival_color,
+            ec='white',
+            lw=2,
+            alpha=0.5)
+
         plt.savefig(self.save_path, dpi=300, bbox_inches='tight')
         plt.close()

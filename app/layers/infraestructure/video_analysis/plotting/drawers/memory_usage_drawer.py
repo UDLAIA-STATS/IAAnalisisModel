@@ -1,13 +1,13 @@
+from layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+    Diagram
 from matplotlib import pyplot as plt
-
-from layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
 
 
 class MemoryUsageDrawer(Diagram):
     def __init__(self, tracks: dict):
         super().__init__(tracks)
         self.save_path = '../app/res/output_videos/memory_usage.png'
-    
+
     def draw_and_save(self) -> None:
         memory = self.tracks['memory_usage']
         plt.figure(figsize=(10, 6))
