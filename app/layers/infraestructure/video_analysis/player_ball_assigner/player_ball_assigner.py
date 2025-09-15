@@ -2,15 +2,16 @@
 from layers.infraestructure.video_analysis.services.bbox_processor_service import (
     get_center_of_bbox, measure_scalar_distance)
 
+
 class PlayerBallAssigner():
     def __init__(self):
         self.max_player_ball_distance = 70
-    
+
     def assign_ball_to_player(self, players, ball_bbox):
         ball_position = get_center_of_bbox(ball_bbox)
 
         miniumum_distance = 99999
-        assigned_player=-1
+        assigned_player = -1
 
         for player_id, player in players.items():
             player_bbox = player['bbox']

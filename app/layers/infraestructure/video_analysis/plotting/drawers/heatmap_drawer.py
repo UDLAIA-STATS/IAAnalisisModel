@@ -1,17 +1,16 @@
-# layers/infraestructure/video_analysis/plotting/heatmap_drawer.py
+from typing import Dict
 
-from typing import Any, Dict
-import pandas as pd
 import matplotlib.pyplot as plt
-from mplsoccer import Pitch
-
+import pandas as pd
 from layers.infraestructure.video_analysis.plotting.interfaces import Diagram
-from layers.infraestructure.video_analysis.plotting.services import DrawerService
+from layers.infraestructure.video_analysis.plotting.services import \
+    DrawerService
+from mplsoccer import Pitch
 
 
 class HeatmapDrawer(Diagram):
     def __init__(self, tracks: Dict):
-        super().__init__(tracks)    
+        super().__init__(tracks)
         self.save_path = '../app/res/output_videos/heatmap.png'
         self.drawer_service = DrawerService()
 
@@ -22,7 +21,8 @@ class HeatmapDrawer(Diagram):
         home_df, rival_df = pd.DataFrame(), pd.DataFrame()
 
         for frame in self.tracks:
-            home_players, rival_players = self.drawer_service.process_frame(frame)
+            home_players, rival_players = self.drawer_service.process_frame(
+                frame)
             home_df = pd.concat([home_df, home_players], ignore_index=True)
             rival_df = pd.concat([rival_df, rival_players], ignore_index=True)
 
@@ -46,14 +46,24 @@ class HeatmapDrawer(Diagram):
         # Dibujar heatmap de cada equipo
         if not home_df.empty:
             pitch.kdeplot(
-                home_df.x, home_df.y,
-                ax=ax, cmap='Blues', fill=True, alpha=0.6, levels=100, bw_adjust=0.3
-            )
+                home_df.x,
+                home_df.y,
+                ax=ax,
+                cmap='Blues',
+                fill=True,
+                alpha=0.6,
+                levels=100,
+                bw_adjust=0.3)
         if not rival_df.empty:
             pitch.kdeplot(
-                rival_df.x, rival_df.y,
-                ax=ax, cmap='Reds', fill=True, alpha=0.6, levels=100, bw_adjust=0.3
-            )
+                rival_df.x,
+                rival_df.y,
+                ax=ax,
+                cmap='Reds',
+                fill=True,
+                alpha=0.6,
+                levels=100,
+                bw_adjust=0.3)
 
         plt.savefig(self.save_path, dpi=300, bbox_inches='tight')
         plt.close()

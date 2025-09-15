@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, List
 
 import numpy as np
-from sympy import field
 from layers.domain.player.player import Player
+from sympy import field
+
 
 @dataclass
 class Team():
@@ -16,23 +17,35 @@ class Team():
         if player.team == self.team:
             self.players.append(player)
         else:
-            raise ValueError(f"Player team_id {player.team} doesn't match team id {self.team}")
-    
-    def get_players_sorted_by_speed(self, descending: bool = True) -> List[Player]:
+            raise ValueError(
+                f"Player team_id {
+                    player.team} doesn't match team id {
+                    self.team}")
+
+    def get_players_sorted_by_speed(
+            self, descending: bool = True) -> List[Player]:
         """Obtiene jugadores ordenados por velocidad"""
         valid_players = [p for p in self.players if p.speed is not None]
-        return sorted(valid_players, key=lambda p: p.speed if p.speed is not None else 0.0, reverse=descending)
-    
-    def get_players_sorted_by_distance(self, descending: bool = True) -> List[Player]:
+        return sorted(valid_players,
+                      key=lambda p: p.speed if p.speed is not None else 0.0,
+                      reverse=descending)
+
+    def get_players_sorted_by_distance(
+            self,
+            descending: bool = True) -> List[Player]:
         """Obtiene jugadores ordenados por distancia"""
         valid_players = [p for p in self.players if p.distance is not None]
-        return sorted(valid_players, key=lambda p: p.distance if p.distance is not None else 0.0, reverse=descending)
-    
+        return sorted(
+            valid_players,
+            key=lambda p: p.distance if p.distance is not None else 0.0,
+            reverse=descending)
+
     def get_team_stats(self) -> Dict[str, Any]:
         """Obtiene estadísticas del equipo"""
         valid_speeds = [p.speed for p in self.players if p.speed is not None]
-        valid_distances = [p.distance for p in self.players if p.distance is not None]
-        
+        valid_distances = [
+            p.distance for p in self.players if p.distance is not None]
+
         return {
             'team_id': self.team,
             'team_name': self.team_name,
@@ -42,7 +55,7 @@ class Team():
             'avg_distance': np.mean(valid_distances) if valid_distances else 0,
             'max_distance': max(valid_distances) if valid_distances else 0
         }
-    
+
     def clear_players(self) -> None:
         """Limpia la lista de jugadores"""
         self.players.clear()

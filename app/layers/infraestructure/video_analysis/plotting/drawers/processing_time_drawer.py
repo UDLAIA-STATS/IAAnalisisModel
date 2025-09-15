@@ -1,18 +1,20 @@
 # layers/infraestructure/video_analysis/plotting/metrics_dashboard_drawer.py
 import matplotlib.pyplot as plt
 import numpy as np
-from layers.infraestructure.video_analysis.plotting.interfaces.diagram import Diagram
+from layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+    Diagram
+
 
 class ProcessingTimeDrawer(Diagram):
     def __init__(self, tracks: dict):
         super().__init__(tracks)
         self.save_path = '../app/res/output_videos/processing_time.png'
-    
+
     def draw_and_save(self) -> None:
         times = self.tracks['processing_time']
         frames = range(1, len(times) + 1)
         cumulative_avg = [np.mean(times[:i]) for i in frames]
-        
+
         plt.figure(figsize=(10, 6))
         plt.plot(frames, times, 'o-', alpha=0.5, label='Tiempo por Frame')
         plt.plot(frames, cumulative_avg, 'r-', label='Promedio Acumulado')
@@ -23,5 +25,3 @@ class ProcessingTimeDrawer(Diagram):
         plt.grid(True)
         plt.savefig(self.save_path, dpi=120)
         plt.close()
-
-
