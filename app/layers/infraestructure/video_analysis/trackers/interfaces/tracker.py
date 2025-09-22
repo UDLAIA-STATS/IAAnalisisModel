@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
+from typing import Dict
 
 import cv2
 import numpy as np
 import supervision as sv
 from cv2.typing import MatLike
-from layers.infraestructure.video_analysis.services import (get_bbox_width,
+from app.layers.domain.collections.track_collection import TrackCollection
+from app.layers.domain.tracks.track_detail import TrackDetailBase, TrackPlayerDetail
+from app.layers.infraestructure.video_analysis.services import (get_bbox_width,
                                                             get_center_of_bbox,
                                                             read_stub, save_stub)
 from ultralytics import YOLO
@@ -25,9 +28,7 @@ class Tracker(ABC):
             cls_names_inv: dict[str, int],
             frame_num: int,
             detection_supervision: sv.Detections,
-            tracks: dict | None = None) -> None:
-        if tracks is None:
-            tracks = {"players": [], "ball": []}
+            tracks_collection: TrackCollection) -> None:
         raise NotImplementedError
 
     def read_tracks_from_stub(self, stub_path: str) -> dict:
@@ -123,6 +124,8 @@ class Tracker(ABC):
         # Get the number of time each team had ball control
         team_1_num_frames = team_ball_control_till_frame[team_ball_control_till_frame == 1].shape[0]
         team_2_num_frames = team_ball_control_till_frame[team_ball_control_till_frame == 2].shape[0]
+        print("Team 1 ball control, ", team_1_num_frames)
+        print("Team 2 ball control, ", team_2_num_frames)
         team_1 = team_1_num_frames / (team_1_num_frames + team_2_num_frames)
         team_2 = team_2_num_frames / (team_1_num_frames + team_2_num_frames)
 
@@ -153,34 +156,52 @@ class Tracker(ABC):
 
         return frame
 
-    def draw_annotations(self, video_frames, tracks, team_ball_control):
+    def draw_annotations(
+            self, 
+            video_frames: list[MatLike], 
+            tracks: Dict[str, Dict[int, Dict[int, TrackDetailBase]]], 
+            team_ball_control) -> list[MatLike]:
+        """
+         Dibuja anotaciones sobre frames de video:
+        - Jugadores con elipse (color por equipo).
+        - Balón con triángulo verde.
+        - Indicador de control de balón por equipo.
+        """
+
         output_video_frames = []
+
         for frame_num, frame in enumerate(video_frames):
+            # Copia defensiva del frame
             frame = np.copy(frame)
 
-            player_dict = tracks["players"][frame_num]
-            ball_dict = tracks["ball"][frame_num]
+            # Obtener tracks del frame (con fallback si no existen)
+            player_dict = tracks.get("players", {}).get(frame_num, {})
+            ball_dict = tracks.get("ball", {}).get(frame_num, {})
 
-            # Draw Players
+            # --- Dibujar jugadores ---
             for track_id, player in player_dict.items():
-                color = player.get("team_color", (0, 0, 255))
-                frame = self.draw_ellipse(
-                    frame, player["bbox"], color, track_id)
+                if not isinstance(player, TrackDetailBase):
+                    continue
+                if player.bbox is None:
+                    continue
 
-                if player.get('has_ball', False):
-                    frame = self.draw_triangle(
-                        frame, player["bbox"], (0, 0, 255))
+                # Mejor: usar directamente player (ya es TrackDetailBase o subclase)
+                team_color = getattr(player, "team_color", None) or (0, 0, 255)
+                frame = self.draw_ellipse(frame, player.bbox, team_color, track_id)
 
-            # Draw ball
-            for track_id, ball in ball_dict.items():
-                frame = self.draw_triangle(frame, ball["bbox"], (0, 255, 0))
+                if getattr(player, "has_ball", False):
+                    frame = self.draw_triangle(frame, player.bbox, (0, 0, 255))
 
-            # Draw Team Ball Control
-            frame = self.draw_team_ball_control(
-                frame, frame_num, team_ball_control)
+            # --- Dibujar balón ---
+            for _, ball in ball_dict.items():
+                if ball.bbox is None:
+                    continue
+                frame = self.draw_triangle(frame, ball.bbox, (0, 255, 0))
+
+            # --- Dibujar control de balón ---
+            frame = self.draw_team_ball_control(frame, frame_num, team_ball_control)
 
             output_video_frames.append(frame)
 
-            # TODO Crear un módulo de limpieza de memoria
-
         return output_video_frames
+    

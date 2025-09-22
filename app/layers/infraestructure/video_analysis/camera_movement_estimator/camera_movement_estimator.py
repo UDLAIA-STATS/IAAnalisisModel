@@ -6,6 +6,9 @@ import cv2
 import numpy as np
 from cv2.typing import MatLike
 
+from app.layers.domain.collections.track_collection import TrackCollection
+from app.layers.domain.tracks.track_detail import TrackBallDetail, TrackPlayerDetail
+
 
 class CameraMovementEstimator():
     def __init__(self, frame: MatLike):
@@ -29,10 +32,10 @@ class CameraMovementEstimator():
 
     def add_adjust_positions_to_tracks(
             self,
-            tracks: dict[str, list],
-            camera_movement_per_frame):
-        for object, object_tracks in tracks.items():
-            for frame_num, track in enumerate(object_tracks):
+            camera_movement_per_frame,
+            tracks_collection: TrackCollection):
+        for entity_type, frames in tracks_collection.tracks.items():
+            for frame_num, tracks_in_frames in frames.items():
                 if frame_num < len(camera_movement_per_frame):
                     camera_movement = camera_movement_per_frame[frame_num]
                 else:
@@ -40,10 +43,46 @@ class CameraMovementEstimator():
                     # for this frame
                     camera_movement = (0, 0)
                 dx, dy = camera_movement
-                for track_id, track_info in track.items():
-                    x, y = track_info['position']
+                for track_id, track_detail in tracks_in_frames.items():
+                    x, y = track_detail.position or (0, 0)
                     position_adjusted = (x - dx, y - dy)
-                    tracks[object][frame_num][track_id]['position_adjusted'] = position_adjusted
+                    track_detail.position_adjusted = position_adjusted
+                    tracks_collection.update_track(
+                        entity_type=entity_type,
+                        frame_num=frame_num,
+                        track_id=track_id,
+                        track_detail=track_detail
+                    )
+
+        # for object, object_tracks in tracks.items():
+        #     for frame_num, track in enumerate(object_tracks):
+        #         if frame_num < len(camera_movement_per_frame):
+        #             camera_movement = camera_movement_per_frame[frame_num]
+        #         else:
+        #             # If frame_num is out of range, assume no camera movement
+        #             # for this frame
+        #             camera_movement = (0, 0)
+        #         dx, dy = camera_movement
+        #         for track_id, track_info in track.items():
+        #             x, y = track_info['position']
+        #             position_adjusted = (x - dx, y - dy)
+        #             if object == 'ball':
+        #                 ball_track = TrackBallDetail(position_adjusted=position_adjusted)
+        #                 tracks_collection.update_track(
+        #                     frame_num=frame_num, 
+        #                     track_id=track_id, 
+        #                     track_detail=ball_track,
+        #                     entity_type="ball"
+        #                 )
+        #             else:
+        #                 player_track = TrackPlayerDetail(position_adjusted=position_adjusted)
+        #                 tracks_collection.update_track(
+        #                     entity_type="players",
+        #                     frame_num=frame_num, 
+        #                     track_id=track_id, 
+        #                     track_detail=player_track
+        #                 )
+        #             tracks[object][frame_num][track_id]['position_adjusted'] = position_adjusted
 
     def get_camera_movement(
             self,
@@ -129,7 +168,7 @@ class CameraMovementEstimator():
 
         return camera_movement_x, camera_movement_y, float(max_distance)
 
-    def draw_camera_movement(self, frames, camera_movement_per_frame):
+    def draw_camera_movement(self, frames: list[MatLike], camera_movement_per_frame):
         output_frames = []
 
         for frame_num, frame in enumerate(frames):

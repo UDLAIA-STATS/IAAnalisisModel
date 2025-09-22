@@ -5,16 +5,17 @@ from typing import Any, Dict, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+from app.layers.domain.tracks.track_detail import TrackDetailBase
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
     Diagram
 from matplotlib.axes import Axes
 from mplsoccer import Pitch
 
 
 class BallTrajectoryDrawer(Diagram):
-    def __init__(self, tracks: Dict):
+    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]]):
         super().__init__(tracks)
-        self.base_save_path = '../app/res/output_videos/'
+        self.base_save_path = './app/res/output_videos/'
         self.ball_positions: List = []
         self.team_colors_map: Dict = {}
         self.player_names = {}
@@ -33,7 +34,7 @@ class BallTrajectoryDrawer(Diagram):
         self._draw_minimaps_diagram()
 
     def _collect_ball_positions(self) -> None:
-        for frame_index, frame in enumerate(self.tracks):
+        for frame_index, frame in self.tracks.items():
             ball_position = self._get_ball_position(frame, frame_index)
             if ball_position:
                 x, y, player_id, team_id = ball_position
@@ -41,26 +42,23 @@ class BallTrajectoryDrawer(Diagram):
                     (x, y, player_id, team_id, frame_index))
                 if team_id not in self.team_colors_map:
                     for player_data in frame.values():
-                        if player_data.get('team') == team_id:
-                            color_arr = player_data['team_color']
+                        if getattr(player_data, 'team', -1) == team_id:
+                            color_arr = getattr(player_data, 'team_color')
                             self.team_colors_map[team_id] = tuple(
                                 c / 255 for c in color_arr)
                             break
 
-    def _get_ball_position(self,
-                           frame: Dict[int,
-                                       Dict[str,
-                                            Any]],
-                           frame_index: int) -> Optional[Tuple[float,
-                                                               float,
-                                                               int,
-                                                               int]]:
+    def _get_ball_position(
+            self,
+            frame: Dict[int, TrackDetailBase],
+            frame_index: int) -> Optional[
+                Tuple[float,float,int,int]]:
         for player_id, player_data in frame.items():
-            if player_data.get('has_ball', False):
-                pos = player_data.get('position_transformed')
+            if getattr(player_data, 'has_ball'):
+                pos = getattr(player_data, 'position_transformed')
                 if pos is None:
                     continue
-                return (pos[0], pos[1], player_id, player_data['team'])
+                return (pos[0], pos[1], player_id, getattr(player_data, 'team', -1))
         return None
 
     def _generate_player_names(self) -> None:

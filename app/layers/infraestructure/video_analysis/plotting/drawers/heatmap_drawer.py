@@ -2,16 +2,17 @@ from typing import Dict
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from layers.infraestructure.video_analysis.plotting.interfaces import Diagram
-from layers.infraestructure.video_analysis.plotting.services import \
+from app.layers.domain.tracks.track_detail import TrackDetailBase
+from app.layers.infraestructure.video_analysis.plotting.interfaces import Diagram
+from app.layers.infraestructure.video_analysis.plotting.services import \
     DrawerService
 from mplsoccer import Pitch
 
 
 class HeatmapDrawer(Diagram):
-    def __init__(self, tracks: Dict):
+    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]]):
         super().__init__(tracks)
-        self.save_path = '../app/res/output_videos/heatmap.png'
+        self.save_path = './app/res/output_videos/heatmap.png'
         self.drawer_service = DrawerService()
 
     def draw_and_save(self) -> None:
@@ -20,9 +21,9 @@ class HeatmapDrawer(Diagram):
     def _draw_heatmap(self) -> None:
         home_df, rival_df = pd.DataFrame(), pd.DataFrame()
 
-        for frame in self.tracks:
+        for frame, track_content in self.tracks.items():
             home_players, rival_players = self.drawer_service.process_frame(
-                frame)
+                track_content)
             home_df = pd.concat([home_df, home_players], ignore_index=True)
             rival_df = pd.concat([rival_df, rival_players], ignore_index=True)
 

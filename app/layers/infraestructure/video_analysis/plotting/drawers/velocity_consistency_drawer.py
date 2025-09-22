@@ -1,15 +1,19 @@
-from layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+from typing import Dict
+from app.layers.domain.tracks.track_detail import TrackDetailBase
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
     Diagram
 from matplotlib import pyplot as plt
 
 
 class VelocityConsistencyDrawer(Diagram):
-    def __init__(self, tracks: dict):
+    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]]):
         super().__init__(tracks)
-        self.save_path = '../app/res/output_videos/velocity_consistency.png'
+        self.save_path = './app/res/output_videos/velocity_consistency.png'
 
     def draw_and_save(self) -> None:
-        inconsistencies = self.tracks['velocity_inconsistencies']
+        if not self.metrics or 'velocity_inconsistencies' not in self.metrics:
+            return
+        inconsistencies = self.metrics['velocity_inconsistencies']
         objects = ['Jugadores', 'Árbitros']
         counts = [inconsistencies['players'], inconsistencies['referees']]
 

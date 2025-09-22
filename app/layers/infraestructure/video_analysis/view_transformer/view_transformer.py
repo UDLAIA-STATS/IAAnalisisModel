@@ -1,5 +1,9 @@
+from typing import Dict
 import cv2
 import numpy as np
+
+from app.layers.domain.collections.track_collection import TrackCollection
+from app.layers.domain.tracks.track_detail import TrackBallDetail, TrackPlayerDetail
 
 
 class ViewTransformer:
@@ -51,23 +55,67 @@ class ViewTransformer:
         # Return as flat (x,y) coordinates
         return transformed_point.reshape(-1, 2)
 
-    def add_transformed_position_to_tracks(self, tracks):
+    def add_transformed_position_to_tracks(
+            self, 
+            tracks_collection: TrackCollection):
         """Add transformed positions to tracking data"""
-        for object_type, object_tracks in tracks.items():
-            for frame_idx, frame_tracks in enumerate(object_tracks):
-                for track_id, track_info in frame_tracks.items():
+        for entity_type, frames in tracks_collection.tracks.items():
+            for frame_num, tracks_in_frames in frames.items():
+                for track_id, track_detail in tracks_in_frames.items():
                     # Get adjusted position from tracking data
                     position_adjusted = np.array(
-                        track_info['position_adjusted'])
-
+                        track_detail.position_adjusted)
                     # Transform to court coordinates
                     position_transformed = self.transform_point(
                         position_adjusted)
-
+                    
                     # Store result (converted to list if valid)
-                    track_info['position_transformed'] = (
+                    position_transformed = (
                         position_transformed.squeeze().tolist()
-
                         if position_transformed is not None
-                        else None
+                        else None)
+                    track_detail.position_transformed = position_transformed
+                    tracks_collection.update_track(
+                        entity_type=entity_type,
+                        frame_num=frame_num,
+                        track_id=track_id,
+                        track_detail=track_detail
                     )
+
+        # for object_type, object_tracks in tracks.items():
+        #     for frame_idx, frame_tracks in enumerate(object_tracks):
+        #         for track_id, track_info in frame_tracks.items():
+        #             # Get adjusted position from tracking data
+        #             position_adjusted = np.array(
+        #                 track_info['position_adjusted'])
+
+        #             # Transform to court coordinates
+        #             position_transformed = self.transform_point(
+        #                 position_adjusted)
+                    
+        #             # Store result (converted to list if valid)
+        #             track_info['position_transformed'] = (
+        #                 position_transformed.squeeze().tolist()
+
+        #                 if position_transformed is not None
+        #                 else None
+        #             )
+        #             position_transformed = (position_transformed.squeeze().tolist()
+        #                     if position_transformed is not None
+        #                     else None)
+        #             if object_type == 'ball':
+        #                 ball_track = TrackBallDetail(position_transformed=position_transformed)
+        #                 tracks_collection.update_track(
+        #                     frame_num=frame_idx,
+        #                     track_id=track_id,
+        #                     track_detail=ball_track,
+        #                     entity_type="ball"
+        #                 )
+        #             else:
+        #                 player_track = TrackPlayerDetail(position_transformed=position_transformed)
+        #                 tracks_collection.update_track(
+        #                     entity_type="players",
+        #                     frame_num=frame_idx,
+        #                     track_id=track_id,
+        #                     track_detail=player_track
+        #                     )

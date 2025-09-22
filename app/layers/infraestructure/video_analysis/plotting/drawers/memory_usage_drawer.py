@@ -1,4 +1,4 @@
-from layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
     Diagram
 from matplotlib import pyplot as plt
 

@@ -2,19 +2,20 @@ from typing import Dict
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+from app.layers.domain.tracks.track_detail import TrackDetailBase
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
     Diagram
-from layers.infraestructure.video_analysis.plotting.services.drawer_service import \
+from app.layers.infraestructure.video_analysis.plotting.services.drawer_service import \
     DrawerService
 from mplsoccer import Pitch
 
 
 class VoronoiDiagramDrawer(Diagram):
-    def __init__(self, tracks: Dict):  # Cambiado a lista de frames
+    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]]):  # Cambiado a lista de frames
         super().__init__(tracks)
         self.home_team_color = 'blue'
         self.rival_team_color = 'red'
-        self.save_path = '../app/res/output_videos/voronoi_diagram.png'
+        self.save_path = './app/res/output_videos/voronoi_diagram.png'
         self.drawer_service = DrawerService()
 
     def draw_and_save(self) -> None:
@@ -25,9 +26,9 @@ class VoronoiDiagramDrawer(Diagram):
         # (puedes modificarlo para procesar todos los frames)
         home_df, rival_df = pd.DataFrame(), pd.DataFrame()
 
-        for frame in self.tracks:
+        for frame, track_content in self.tracks.items():
             home_players, rival_players = self.drawer_service.process_frame(
-                frame)
+                track_content)
             home_df = pd.concat([home_df, home_players], ignore_index=False)
             rival_df = pd.concat([rival_df, rival_players], ignore_index=False)
 

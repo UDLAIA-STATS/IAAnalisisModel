@@ -1,7 +1,7 @@
 # layers/infraestructure/video_analysis/plotting/metrics_dashboard_drawer.py
 import matplotlib.pyplot as plt
 import numpy as np
-from layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
     Diagram
 
 

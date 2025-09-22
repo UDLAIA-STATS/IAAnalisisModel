@@ -1,6 +1,6 @@
 from typing import Dict, List, Type
 
-from layers.infraestructure.video_analysis.trackers.interfaces import Tracker
+from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker
 from ultralytics import YOLO
 
 

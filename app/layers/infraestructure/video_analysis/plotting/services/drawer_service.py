@@ -2,6 +2,8 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
+from app.layers.domain.tracks.track_detail import TrackDetailBase
+
 
 class DrawerService():
     def _rgb_to_hex(self, player_color: List[float]) -> str:
@@ -21,27 +23,27 @@ class DrawerService():
         scaled_y = y * (80 / 70)  # 70 * (80/70) = 80
         return scaled_x, scaled_y
 
-    def process_frame(self, frame: Dict[int, Dict[str, Any]]):
+    def process_frame(self, frame: Dict[int,  TrackDetailBase]):
         """Procesa un frame y devuelve DataFrames escalados"""
         home_players = []
         rival_players = []
 
         for player_id, track in frame.items():
-            if track['position_transformed'] is None:
+            if track.position_transformed is None:
                 continue
 
             # Escalar coordenadas
-            x, y = self._scale_coordinates(*track['position_transformed'])
+            x, y = self._scale_coordinates(*track.position_transformed)
 
             player_data = {
                 'x': x,
                 'y': y,
                 'id': player_id,
-                'team': track['team'],
-                'color': self._rgb_to_hex(track['team_color'])
+                'team': getattr(track, 'team', -1),
+                'color': self._rgb_to_hex(getattr(track, 'team_color')) if getattr(track, 'team_color') else "#A41D46"
             }
 
-            if track['team'] == 1:
+            if getattr(track, 'team', -1) == 1:
                 home_players.append(player_data)
             else:
                 rival_players.append(player_data)
