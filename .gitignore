@@ -172,10 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-# Directorios de recursos del proyecto de análisis de video
-app/res/input_videos/
-app/res/output_videos/
-app/res/stubs/
+
 
 app/res/temp/
 app/res/cache/
@@ -198,7 +195,6 @@ app/tracks.json
 *.weights
 *.caffemodel
 *.prototxt
-models/
 checkpoints/
 weights/
 
