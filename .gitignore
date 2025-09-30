@@ -197,7 +197,7 @@ app/tracks.json
 *.prototxt
 checkpoints/
 weights/
-
+*.torchscript
 # Archivos de video (muy grandes)
 *.mp4
 *.avi
