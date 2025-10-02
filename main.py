@@ -189,6 +189,7 @@ def main():
 
     # Ensure we have memory measurements
     if not metrics['memory_usage']:
+
         # Add final memory measurement if no others exist
         metrics['memory_usage'].append(total_memory)
 
