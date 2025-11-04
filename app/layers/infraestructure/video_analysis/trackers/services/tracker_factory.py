@@ -11,7 +11,7 @@ class TrackerFactoryError(Exception):
 class TrackerFactory:
     def __init__(self, model: YOLO):
         """
-        Factory que crea instancias de trackers 
+        Factory que crea instancias de trackers
         usando un único modelo YOLO compartido.
         """
         self._registry: Dict[str, Tracker] = {}

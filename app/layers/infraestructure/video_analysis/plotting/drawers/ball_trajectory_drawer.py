@@ -52,7 +52,7 @@ class BallTrajectoryDrawer(Diagram):
             self,
             frame: Dict[int, TrackDetailBase],
             frame_index: int) -> Optional[
-                Tuple[float,float,int,int]]:
+                Tuple[float, float, int, int]]:
         for player_id, player_data in frame.items():
             if getattr(player_data, 'has_ball'):
                 pos = getattr(player_data, 'position_transformed')

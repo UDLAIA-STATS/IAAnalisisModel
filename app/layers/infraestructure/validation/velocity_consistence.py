@@ -23,6 +23,4 @@ def check_speed_consistency(tracks_collecion: TrackCollection):
         if np.any(accelerations > 15):
             results["players"] += 1
 
-
-
     return results

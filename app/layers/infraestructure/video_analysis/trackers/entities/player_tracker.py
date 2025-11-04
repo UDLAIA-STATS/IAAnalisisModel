@@ -1,8 +1,10 @@
+from pathlib import Path
 import supervision as sv
 from app.layers.domain.collections.track_collection import TrackCollection
 from app.layers.domain.tracks.track_detail import TrackPlayerDetail
 from app.layers.infraestructure.video_analysis.trackers.interfaces import Tracker
-
+from cv2.typing import MatLike
+import matplotlib.pyplot as plt
 
 class PlayerTracker(Tracker):
 
@@ -34,9 +36,7 @@ class PlayerTracker(Tracker):
                     frame_num=frame_num,
                     track_id=int(track_id),
                     track_detail=track)
-        
 
-        
         # for frame_detection in detection_with_tracks:
         #     bbox = frame_detection[0].tolist()
         #     cls_id = frame_detection[3]

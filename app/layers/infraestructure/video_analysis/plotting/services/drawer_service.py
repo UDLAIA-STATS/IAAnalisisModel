@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import pandas as pd
 
@@ -23,7 +23,7 @@ class DrawerService():
         scaled_y = y * (80 / 70)  # 70 * (80/70) = 80
         return scaled_x, scaled_y
 
-    def process_frame(self, frame: Dict[int,  TrackDetailBase]):
+    def process_frame(self, frame: Dict[int, TrackDetailBase]):
         """Procesa un frame y devuelve DataFrames escalados"""
         home_players = []
         rival_players = []
@@ -34,13 +34,15 @@ class DrawerService():
 
             # Escalar coordenadas
             x, y = self._scale_coordinates(*track.position_transformed)
-
+            team_color = getattr(track, 'team_color')
+            print("Team color for player ", player_id, ": ", team_color)
+            
             player_data = {
                 'x': x,
                 'y': y,
                 'id': player_id,
                 'team': getattr(track, 'team', -1),
-                'color': self._rgb_to_hex(getattr(track, 'team_color')) if getattr(track, 'team_color') else "#A41D46"
+                'color': self._rgb_to_hex(team_color) if team_color else "#A41D46"
             }
 
             if getattr(track, 'team', -1) == 1:

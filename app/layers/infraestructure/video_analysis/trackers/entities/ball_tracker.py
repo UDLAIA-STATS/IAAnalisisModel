@@ -29,11 +29,10 @@ class BallTracker(Tracker):
             track = TrackBallDetail(bbox=ball_bbox, track_id=int(ball_id))
             tracks_collection.update_track(
                 frame_num=frame_num,
-                track_id= int(ball_id),
+                track_id=int(ball_id),
                 track_detail=track,
                 entity_type="ball")
-         
-                
+
         # for frame_detection in detection_supervision:
         #     bbox = frame_detection[0].tolist()
         #     cls_id = frame_detection[3]
@@ -44,28 +43,41 @@ class BallTracker(Tracker):
     def interpolate_ball_positions(
             self,
             ball_tracks: Dict[int, Dict[int, TrackDetailBase]]
-            ) -> Dict[Hashable, Dict[int, Dict[str, list]]]:
-            ball_positions = {}
-            frame_indices = []
-            for frame_num, tracks_in_frame in ball_tracks.items():
-                for track_id, track in tracks_in_frame.items():
-                    ball_positions[frame_num] = track.bbox
-                    frame_indices.append(frame_num)
+    ) -> Dict[Hashable, Dict[int, Dict[str, list]]]:
+        """
+    Interpola posiciones del balón entre frames perdidos.
 
-            # DataFrame con índice de frames
-            df_ball = pd.DataFrame.from_dict(
-                ball_positions, orient="index", columns=["x1", "y1", "x2", "y2"]
-            ).sort_index()
+    Args:
+        ball_tracks: dict con estructura {frame_num: {track_id: TrackBallDetail}}
+        max_gap: máximo número de frames consecutivos sin detección que se interpolan
+    """
+    #     positions = {
+    #     frame: track[1].bbox
+    #     for frame, track in ball_tracks.items()
+    #     if 1 in track and track[1].bbox is not None
+    # }
+        
+        ball_positions = {}
+        frame_indices = []
+        for frame_num, tracks_in_frame in ball_tracks.items():
+            for track_id, track in tracks_in_frame.items():
+                ball_positions[frame_num] = track.bbox
+                frame_indices.append(frame_num)
 
-            # Interpolación
-            df_ball = df_ball.interpolate(limit_direction="both")
+        # DataFrame con índice de frames
+        df_ball = pd.DataFrame.from_dict(
+            ball_positions, orient="index", columns=["x1", "y1", "x2", "y2"]
+        ).sort_index()
 
-            # Reconstruir como dict indexado por frame
-            interpolated_tracks = {
-                frame: {1: {"bbox": row.tolist()}}
-                for frame, row in df_ball.iterrows()
-            }
-            return interpolated_tracks
+        # Interpolación
+        df_ball = df_ball.interpolate(limit_direction="both")
+
+        # Reconstruir como dict indexado por frame
+        interpolated_tracks = {
+            frame: {1: {"bbox": row.tolist()}}
+            for frame, row in df_ball.iterrows()
+        }
+        return interpolated_tracks
 
         # ball_positions= []
         # for frame_num, tracks_in_frame in ball_tracks.items():

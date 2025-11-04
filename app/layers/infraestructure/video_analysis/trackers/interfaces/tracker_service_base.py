@@ -5,12 +5,9 @@ from typing import List, Type
 
 import supervision as sv
 from cv2.typing import MatLike
-from app.layers.domain import tracks
 from app.layers.domain.collections.track_collection import TrackCollection
-from app.layers.domain.tracks.track_detail import TrackBallDetail, TrackPlayerDetail
 from app.layers.domain.utils.singleton import AbstractSingleton
-from app.layers.infraestructure.video_analysis.services import (get_center_of_bbox,
-                                                            get_foot_position)
+from app.layers.infraestructure.video_analysis.services import (get_center_of_bbox)
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
@@ -75,7 +72,6 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
                         track_id=track_id,
                         track_detail=track_detail
                     )
-
 
     def read_tracks_from_stub(self, stub_path: str) -> dict:
         tracks: dict = {"players": [], "ball": []}

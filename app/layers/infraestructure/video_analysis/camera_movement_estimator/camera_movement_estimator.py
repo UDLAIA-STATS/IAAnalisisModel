@@ -1,4 +1,5 @@
 import gc
+import logging
 import pathlib
 import pickle
 
@@ -7,7 +8,6 @@ import numpy as np
 from cv2.typing import MatLike
 
 from app.layers.domain.collections.track_collection import TrackCollection
-from app.layers.domain.tracks.track_detail import TrackBallDetail, TrackPlayerDetail
 
 
 class CameraMovementEstimator():
@@ -36,17 +36,19 @@ class CameraMovementEstimator():
             tracks_collection: TrackCollection):
         for entity_type, frames in tracks_collection.tracks.items():
             for frame_num, tracks_in_frames in frames.items():
-                if frame_num < len(camera_movement_per_frame):
-                    camera_movement = camera_movement_per_frame[frame_num]
-                else:
-                    # If frame_num is out of range, assume no camera movement
-                    # for this frame
-                    camera_movement = (0, 0)
+                # if frame_num < len(camera_movement_per_frame):
+                camera_movement = camera_movement_per_frame[frame_num]
+                # else:
+                #     # If frame_num is out of range, assume no camera movement
+                #     # for this frame
+                #     camera_movement = (0, 0)
                 dx, dy = camera_movement
                 for track_id, track_detail in tracks_in_frames.items():
+                    print(f"Actual position of track {track_id}: {track_detail.position}")
                     x, y = track_detail.position or (0, 0)
                     position_adjusted = (x - dx, y - dy)
-                    track_detail.position_adjusted = position_adjusted
+                    track_detail.update(position_adjusted=position_adjusted)
+                    # track_detail.position_adjusted = position_adjusted
                     tracks_collection.update_track(
                         entity_type=entity_type,
                         frame_num=frame_num,
@@ -69,8 +71,8 @@ class CameraMovementEstimator():
         #             if object == 'ball':
         #                 ball_track = TrackBallDetail(position_adjusted=position_adjusted)
         #                 tracks_collection.update_track(
-        #                     frame_num=frame_num, 
-        #                     track_id=track_id, 
+        #                     frame_num=frame_num,
+        #                     track_id=track_id,
         #                     track_detail=ball_track,
         #                     entity_type="ball"
         #                 )
@@ -78,8 +80,8 @@ class CameraMovementEstimator():
         #                 player_track = TrackPlayerDetail(position_adjusted=position_adjusted)
         #                 tracks_collection.update_track(
         #                     entity_type="players",
-        #                     frame_num=frame_num, 
-        #                     track_id=track_id, 
+        #                     frame_num=frame_num,
+        #                     track_id=track_id,
         #                     track_detail=player_track
         #                 )
         #             tracks[object][frame_num][track_id]['position_adjusted'] = position_adjusted
@@ -106,9 +108,9 @@ class CameraMovementEstimator():
                 old_gray,
                 frame_gray,
                 old_features,
-                None, # type: ignore
+                None,  # type: ignore
                 **self.lk_params  # type: ignore
-            )  
+            )
             # new_features, _, _ =
             # cv2.calcOpticalFlowFarneback(old_gray, frame_gray,
             # old_features, None, **self.lk_params)

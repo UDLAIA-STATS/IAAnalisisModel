@@ -15,7 +15,7 @@ class SpeedAndDistanceEstimator():
         self.frame_rate = 24
 
     def add_speed_and_distance_to_tracks(
-            self, 
+            self,
             tracks_collection: TrackCollection):
         total_distance = {}
         print("Calculating speed and distance...")
@@ -44,8 +44,8 @@ class SpeedAndDistanceEstimator():
                     time_elapsed = (last_frame - frame_num) / self.frame_rate
                     if time_elapsed <= 0:
                         continue
-                    speed_meteres_per_second = distance_covered / time_elapsed
-                    speed_km_per_hour = speed_meteres_per_second * 3.6
+                    speed_meters_per_sec = distance_covered / time_elapsed
+                    speed_km_per_hour = speed_meters_per_sec * 3.6
 
                     if entity_type not in total_distance:
                         total_distance[entity_type] = {}
@@ -55,14 +55,20 @@ class SpeedAndDistanceEstimator():
 
                     total_distance[entity_type][track_id] += distance_covered
 
-                    print(f"Track ID: {track_id}, Speed: {speed_km_per_hour:.2f} km/h, Total Distance: {total_distance[entity_type][track_id]:.2f} m")
+                    print(
+                        f"Track ID: {track_id}, Speed: {
+                            speed_km_per_hour:.2f} km/h, Total Distance: {
+                            total_distance[entity_type][track_id]:.2f} m")
                     for frame_num_batch in range(frame_num, last_frame):
                         if track_id not in frames[frame_num_batch]:
                             continue
 
                         track = tracks_collection.tracks[entity_type][frame_num_batch][track_id]
-                        track.speed_km_per_hour = speed_km_per_hour
-                        track.covered_distance = total_distance[entity_type][track_id]
+                        track.update(
+                            speed_km_per_hour=speed_km_per_hour,
+                            covered_distance=total_distance[entity_type][track_id])
+                        # track.speed_km_per_hour = speed_km_per_hour
+                        # track.covered_distance = total_distance[entity_type][track_id]
                         tracks_collection.update_track(
                             entity_type=entity_type,
                             frame_num=frame_num_batch,
@@ -111,23 +117,23 @@ class SpeedAndDistanceEstimator():
 
         #                 if tracked_object == "ball":
         #                     ball_tracker = TrackBallDetail(
-        #                         speed_km_per_hour=speed_km_per_hour, 
+        #                         speed_km_per_hour=speed_km_per_hour,
         #                         covered_distance=total_distance[tracked_object][track_id])
         #                     tracks_collection.update_track(
         #                         entity_type="ball",
-        #                         frame_num=frame_num_batch, 
-        #                         track_id=track_id, 
+        #                         frame_num=frame_num_batch,
+        #                         track_id=track_id,
         #                         track_detail=ball_tracker
         #                     )
         #                 else:
         #                     player_tracker = TrackPlayerDetail(
-        #                         speed_km_per_hour=speed_km_per_hour, 
+        #                         speed_km_per_hour=speed_km_per_hour,
         #                         covered_distance=total_distance[tracked_object][track_id]
         #                     )
         #                     tracks_collection.update_track(
         #                         entity_type="players",
-        #                         frame_num=frame_num_batch, 
-        #                         track_id=track_id, 
+        #                         frame_num=frame_num_batch,
+        #                         track_id=track_id,
         #                         track_detail=player_tracker
         #                         )
 
@@ -158,12 +164,12 @@ class SpeedAndDistanceEstimator():
                         position = tuple(map(int, position))
                         cv2.putText(
                             frame, f"{
-                                speed:.2f} km/h", 
-                                position, 
-                                cv2.FONT_HERSHEY_SIMPLEX, 
-                                0.5, 
-                                (0, 0, 0), 
-                                2)
+                                speed:.2f} km/h",
+                            position,
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5,
+                            (0, 0, 0),
+                            2)
                         cv2.putText(frame,
                                     f"{distance:.2f} m",
                                     (position[0],

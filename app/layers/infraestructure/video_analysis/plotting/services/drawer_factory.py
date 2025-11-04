@@ -11,7 +11,12 @@ class DrawerFactoryError(Exception):
 
 class DrawerFactory:
     @classmethod
-    def run_drawer(cls, drawer_type: Type[Diagram], tracks: Dict[int, Dict[int, TrackDetailBase]], metrics: Dict | None = None) -> None:
+    def run_drawer(cls,
+                   drawer_type: Type[Diagram],
+                   tracks: Dict[int,
+                                Dict[int,
+                                     TrackDetailBase]],
+                   metrics: Dict | None = None) -> None:
         """Runs a specific drawer based on the drawer type."""
 
         if drawer_type is None or not issubclass(drawer_type, Diagram):

@@ -1,9 +1,7 @@
-from typing import Dict
 import cv2
 import numpy as np
 
 from app.layers.domain.collections.track_collection import TrackCollection
-from app.layers.domain.tracks.track_detail import TrackBallDetail, TrackPlayerDetail
 
 
 class ViewTransformer:
@@ -56,7 +54,7 @@ class ViewTransformer:
         return transformed_point.reshape(-1, 2)
 
     def add_transformed_position_to_tracks(
-            self, 
+            self,
             tracks_collection: TrackCollection):
         """Add transformed positions to tracking data"""
         for entity_type, frames in tracks_collection.tracks.items():
@@ -68,13 +66,14 @@ class ViewTransformer:
                     # Transform to court coordinates
                     position_transformed = self.transform_point(
                         position_adjusted)
-                    
+
                     # Store result (converted to list if valid)
                     position_transformed = (
                         position_transformed.squeeze().tolist()
                         if position_transformed is not None
                         else None)
-                    track_detail.position_transformed = position_transformed
+                    track_detail.update(position_transformed=position_transformed)
+                    # track_detail.position_transformed = position_transformed
                     tracks_collection.update_track(
                         entity_type=entity_type,
                         frame_num=frame_num,
@@ -92,7 +91,7 @@ class ViewTransformer:
         #             # Transform to court coordinates
         #             position_transformed = self.transform_point(
         #                 position_adjusted)
-                    
+
         #             # Store result (converted to list if valid)
         #             track_info['position_transformed'] = (
         #                 position_transformed.squeeze().tolist()

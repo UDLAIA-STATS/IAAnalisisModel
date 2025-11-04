@@ -30,3 +30,20 @@ def save_video(ouput_video_frames, output_video_path: str):
     for frame in ouput_video_frames:
         out.write(frame)
     out.release()
+    
+def extract_player_images(
+    video_frames: list[MatLike],
+    tracks_collection,
+    output_folder: str
+):
+    folder = pathlib.Path(output_folder)
+    if not folder.exists():
+        folder.mkdir(parents=True, exist_ok=True)
+
+    for frame_num, player_track in tracks_collection.tracks["players"].items():
+        for player_id, track in player_track.items():
+            bbox = track.bbox
+            x1, y1, x2, y2 = map(int, bbox)
+            player_image = video_frames[frame_num][y1:y2, x1:x2]
+            player_image_path = folder / f"frame_{frame_num}_player_{player_id}.png"
+            cv2.imwrite(str(player_image_path), player_image)

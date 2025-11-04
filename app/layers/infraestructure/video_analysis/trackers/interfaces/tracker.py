@@ -8,8 +8,8 @@ from cv2.typing import MatLike
 from app.layers.domain.collections.track_collection import TrackCollection
 from app.layers.domain.tracks.track_detail import TrackDetailBase, TrackPlayerDetail
 from app.layers.infraestructure.video_analysis.services import (get_bbox_width,
-                                                            get_center_of_bbox,
-                                                            read_stub, save_stub)
+                                                                get_center_of_bbox,
+                                                                read_stub, save_stub)
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
@@ -157,9 +157,9 @@ class Tracker(ABC):
         return frame
 
     def draw_annotations(
-            self, 
-            video_frames: list[MatLike], 
-            tracks: Dict[str, Dict[int, Dict[int, TrackDetailBase]]], 
+            self,
+            video_frames: list[MatLike],
+            tracks: Dict[str, Dict[int, Dict[int, TrackDetailBase]]],
             team_ball_control) -> list[MatLike]:
         """
          Dibuja anotaciones sobre frames de video:
@@ -186,7 +186,13 @@ class Tracker(ABC):
                     continue
 
                 # Mejor: usar directamente player (ya es TrackDetailBase o subclase)
-                team_color = getattr(player, "team_color", None) or (0, 0, 255)
+                team_color = getattr(player, "team_color", None)
+                
+                if isinstance(team_color, np.ndarray):
+                    team_color = team_color.tolist()
+                if not isinstance(team_color, (list, tuple)) or len(team_color) < 3:
+                    team_color = (0, 0, 255)
+
                 frame = self.draw_ellipse(frame, player.bbox, team_color, track_id)
 
                 if getattr(player, "has_ball", False):
@@ -204,4 +210,3 @@ class Tracker(ABC):
             output_video_frames.append(frame)
 
         return output_video_frames
-    

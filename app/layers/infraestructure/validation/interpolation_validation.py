@@ -4,10 +4,13 @@ from app.layers.domain.tracks.track_detail import TrackDetailBase
 from app.layers.infraestructure.video_analysis.trackers.entities.ball_tracker import \
     BallTracker
 
-def calculate_bbox_center(bbox):
-        return np.array([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2])
 
-def calculate_interpolation_error(tracker: BallTracker, original_tracks: Dict[int, Dict[int, TrackDetailBase]]):
+def calculate_bbox_center(bbox):
+    return np.array([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2])
+
+
+def calculate_interpolation_error(
+        tracker: BallTracker, original_tracks: Dict[int, Dict[int, TrackDetailBase]]):
     interpolated_tracks = tracker.interpolate_ball_positions(original_tracks)
     errors = []
 
@@ -26,12 +29,12 @@ def calculate_interpolation_error(tracker: BallTracker, original_tracks: Dict[in
                 ):
                     continue
 
-                error = np.sum((calculate_bbox_center(original_bbox) - calculate_bbox_center(interpolated_bbox)) ** 2)
+                error = np.sum(
+                    (calculate_bbox_center(original_bbox) -
+                     calculate_bbox_center(interpolated_bbox)) ** 2)
                 errors.append(error)
 
     return float(np.mean(errors)) if errors else 0.0
-
-
 
     # for orig_frame, interp_frame in zip(original_tracks, interpolated_tracks):
     #     if 1 in orig_frame and 1 in interp_frame:

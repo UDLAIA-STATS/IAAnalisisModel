@@ -29,18 +29,21 @@ class TrackerService(TrackerServiceBase):
 
         results = self.detect_frames(frames)
 
+        printed = False
         for frame_num, detection in enumerate(results):
             cls_names = detection.names
             cls_names_inv = {v: k for k, v in cls_names.items()}
-            print(cls_names_inv)
 
             # Covert to supervision Detection format
             detection_supervision = sv.Detections.from_ultralytics(detection)
-            print(detection_supervision.data.keys())
 
             # Track Objects
-            detection_with_tracks =  self.tracker.update_with_detections(detection_supervision)
-            if not self.detection_frame: self.detection_frame = detection_with_tracks
+            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+            if not self.detection_frame:
+                self.detection_frame = detection_with_tracks
+            if not printed:
+                print(detection_with_tracks)
+                printed = True
 
             for _, val in enumerate(self.get_trackers()):
                 val.get_object_tracks(
@@ -48,10 +51,9 @@ class TrackerService(TrackerServiceBase):
                     cls_names_inv=cls_names_inv,
                     frame_num=frame_num,
                     detection_supervision=detection_supervision,
-                    tracks_collection = tracks_collection
+                    tracks_collection=tracks_collection
                 )
 
         # if stub_path is not None:
         #     with open(stub_path, 'wb') as f:
         #         pickle.dump(tracks, f)
-

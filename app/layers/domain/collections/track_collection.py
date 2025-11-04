@@ -1,5 +1,5 @@
-from typing import Dict, Mapping, Sequence
-from app.layers.domain.tracks.track_detail import TrackBallDetail, TrackDetailBase, TrackPlayerDetail
+from typing import Dict, Mapping
+from app.layers.domain.tracks.track_detail import TrackDetailBase
 from app.layers.domain.utils.singleton import Singleton
 
 
@@ -16,7 +16,7 @@ class TrackCollection(metaclass=Singleton):
         - int  : Número de frame.
         - int  : ID del track (track_id).
         - value: Objeto `TrackDetailBase` que contiene la información del track.
-    
+
     Esta clase sigue el patrón Singleton, asegurando que solo exista una
     instancia de `TrackCollection` en toda la aplicación.
     """
@@ -32,13 +32,13 @@ class TrackCollection(metaclass=Singleton):
             "players": {},
             "ball": {}
         }
-    
+
     def exists_track_in_collection(
-            self, 
-            collection: Mapping[int, Mapping[int, TrackDetailBase]], 
+            self,
+            collection: Mapping[int, Mapping[int, TrackDetailBase]],
             frame_num: int,
-            frame_id: int | None= None
-            ) -> bool:
+            frame_id: int | None = None
+    ) -> bool:
         """
         Verifica si existe un frame dentro de una colección de tracks.
 
@@ -50,11 +50,11 @@ class TrackCollection(metaclass=Singleton):
             bool: True si el frame existe en la colección, False en caso contrario.
         """
         return frame_num in collection and (frame_id is None or frame_id in collection[frame_num])
-    
+
     def add_track(
-            self, 
-            entity_type: str, 
-            frame_num: int, 
+            self,
+            entity_type: str,
+            frame_num: int,
             track_detail: TrackDetailBase) -> None:
         """
         Agrega un track a la colección para una entidad y frame específico.
@@ -69,14 +69,19 @@ class TrackCollection(metaclass=Singleton):
         """
         if entity_type not in self.tracks:
             raise ValueError(f"Tipo de entidad '{entity_type}' no reconocido.")
-        
+
         # Inserta el track en la jerarquía: entidad → frame → track_id → track_detail
-        
+
         self.tracks[entity_type] \
             .setdefault(frame_num, {}) \
             .setdefault(track_detail.track_id or -1, track_detail)
 
-    def update_track(self, entity_type: str, frame_num: int, track_id: int, track_detail: TrackDetailBase) -> None:
+    def update_track(
+            self,
+            entity_type: str,
+            frame_num: int,
+            track_id: int,
+            track_detail: TrackDetailBase) -> None:
         """
         Actualiza los atributos de un track existente en la colección.
 
@@ -91,7 +96,7 @@ class TrackCollection(metaclass=Singleton):
         """
         if entity_type not in self.tracks:
             raise ValueError(f"Tipo de entidad '{entity_type}' no reconocido.")
-        
+
         collection = self.tracks[entity_type]
         # Se pasa el __dict__ para propagar dinámicamente todos los atributos del track
         if self.exists_track_in_collection(collection, frame_num, track_id):
@@ -99,15 +104,13 @@ class TrackCollection(metaclass=Singleton):
         else:
             self.add_track(entity_type, frame_num, track_detail)
 
-      
-
     def _update_track_in_collection(
-            self, 
+            self,
             collection: Mapping[int, Mapping[int, TrackDetailBase]],
-            frame_num: int, 
-            track_id: int, 
+            frame_num: int,
+            track_id: int,
             track_detail: TrackDetailBase
-            ) -> None:
+    ) -> None:
         """
         Actualiza un track específico dentro de una colección dada.
 
@@ -121,10 +124,11 @@ class TrackCollection(metaclass=Singleton):
             - Si el frame o el track_id no existen, no se hace nada.
             - Se asume que `TrackDetailBase` o sus derivados implementan un método `update`.
         """
-        print(f"Attempting to update track in collection for frame {frame_num} and track ID {track_id}")
+        print(
+            f"Attempting to update track in collection for frame {frame_num} and track ID {track_id}")
         if frame_num not in collection:
             return
-        
+
         print(f"Frame {frame_num} found. Checking for track ID {track_id}...")
         frames = collection[frame_num]
         if track_id not in frames:

@@ -5,16 +5,17 @@ import numpy as np
 from app.layers.domain.collections.track_collection import TrackCollection
 from app.layers.domain.tracks.track_detail import TrackDetailBase, TrackPlayerDetail
 from app.layers.infraestructure.validation import (calculate_interpolation_error,
-                                               check_speed_consistency)
+                                                   check_speed_consistency)
 from app.layers.infraestructure.video_analysis.camera_movement_estimator import \
     CameraMovementEstimator
 from app.layers.infraestructure.video_analysis.player_ball_assigner import \
     PlayerBallAssigner
 from app.layers.infraestructure.video_analysis.plotting import generate_diagrams
 from app.layers.infraestructure.video_analysis.services import (read_video,
-                                                            save_video)
+                                                                save_video)
+from app.layers.infraestructure.video_analysis.services.video_processing_service import extract_player_images
 from app.layers.infraestructure.video_analysis.speed_and_distance_estimator import \
-SpeedAndDistanceEstimator
+    SpeedAndDistanceEstimator
 from app.layers.infraestructure.video_analysis.team_assigner import TeamAssigner
 from app.layers.infraestructure.video_analysis.trackers.entities import (
     BallTracker, PlayerTracker)
@@ -36,17 +37,19 @@ def main():
         'velocity_inconsistencies': {'players': 0, 'referees': 0}
     }
 
-    # Read Video
+    # Lectura y extracción de frames del video
     video_frames = read_video('./app/res/input_videos/08fd33_4.mp4')
     if not video_frames:
         print("Error: No frames read from video")
         return
 
-    # Initialize components
+    # Inicializa los trackers para el reconocimiento de objetos
     tracker = TrackerService("./app/res/models/best.torchscript")
     tracker.create_tracker('players', PlayerTracker)
     tracker.create_tracker('ball', BallTracker)
+    
 
+    # Entidades necesarios para el almacenamiento y procesamiento de tracks
     tracks_collection = TrackCollection()
     view_transformer = ViewTransformer()
     speed_and_distance_estimator = SpeedAndDistanceEstimator()
@@ -54,10 +57,11 @@ def main():
     player_assigner = PlayerBallAssigner()
     camera_movement_estimator = CameraMovementEstimator(video_frames[0])
 
-    # Process video in bulk (not per-frame)
+    # Obtiene los tracks de los objetos en el video, la opción de stubs utiliza datos preprocesados para acelerar las pruebas, solo usar
+    # en pruebas 
     tracker.get_object_tracks(
         video_frames,
-        read_from_stub=True,
+        read_from_stub=False,
         stub_path='./app/res/stubs/track_stubs.pkl',
         tracks_collection=tracks_collection
     )
@@ -68,7 +72,7 @@ def main():
     # Estimate camera movement
     camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
         video_frames,
-        read_from_stub=True,
+        read_from_stub=False,
         stub_path='./app/res/stubs/camera_movement_stub.pkl'
     )
     camera_movement_estimator.add_adjust_positions_to_tracks(
@@ -78,12 +82,12 @@ def main():
     view_transformer.add_transformed_position_to_tracks(tracks_collection=tracks_collection)
 
     # Interpolate Ball Positions
-    #tracks["ball"].copy()
+    # tracks["ball"].copy()
     ball_tracker = tracker.get_tracker('ball')
 
     if not isinstance(ball_tracker, BallTracker):
         raise TypeError("Retrieved tracker is not an instance of BallTracker")
-    
+
     detected_frames = sum(
         1
         for frame_tracks in tracks_collection.tracks["ball"].values()
@@ -107,7 +111,7 @@ def main():
     for frame_num, track_content in tracks_collection.tracks["players"].items():
         print("Assigning player teams...", tracks_collection.tracks["players"][frame_num].values())
         team_assigner.assign_team_color(
-            video_frames[0], 
+            video_frames[0],
             tracks_collection.tracks["players"][frame_num])
         continue
 
@@ -119,22 +123,32 @@ def main():
                 player_id
             )
             player_tracker = TrackPlayerDetail(**track.model_dump())
-            player_tracker.team = team
-            player_tracker.team_color = team_assigner.team_colors[team]
+            player_tracker.update(team=team, team_color=team_assigner.team_colors[team])
+            # player_tracker.team = team
+            # player_tracker.team_color = team_assigner.team_colors[team]
             tracks_collection.update_track(
                 entity_type="players",
                 frame_num=frame_num,
                 track_id=player_id,
                 track_detail=player_tracker
             )
-            
 
     # Assign Ball Acquisition
     team_ball_control = []
     print("Assigning ball to players...")
     print("Total frames to assign ball: ", len(tracks_collection.tracks["players"]))
     for frame_num, player_track in tracks_collection.tracks["players"].items():
-        ball_bbox = tracks_collection.tracks['ball'][frame_num][1].bbox
+        print("Processing frame number: ", frame_num)
+        print("Ball tracks length: ", tracks_collection.tracks['ball'].values())
+        ball_frame_tracks = tracks_collection.tracks.get('ball', {}).get(int(frame_num))
+        
+        if not ball_frame_tracks or 1 not in ball_frame_tracks:
+            print("No ball track for this frame, appending -1")
+            team_ball_control.append(team_ball_control[-1] if team_ball_control else -1)
+            continue
+        
+        ball_detail = next(iter(ball_frame_tracks.values()))
+        ball_bbox = ball_detail.bbox
         assigned_player = player_assigner.assign_ball_to_player(
             player_track, ball_bbox)
         print("Assigned player: ", assigned_player)
@@ -142,8 +156,13 @@ def main():
         if assigned_player != -1:
             player_base: TrackDetailBase = player_track[assigned_player]
             print("Actual player track: ", player_base)
-            player: TrackPlayerDetail = TrackPlayerDetail(**player_base.model_dump())
-            player.has_ball = True
+            dict_player = player_base.model_dump()
+            print("Updated player team: ", dict_player['team'])
+            print("Updated player team color: ", dict_player['team_color'])
+            print("Dict player: ", TrackPlayerDetail.model_validate(dict_player))
+            player: TrackPlayerDetail = TrackPlayerDetail(**dict_player)
+            player.update(has_ball=True)
+            # player.has_ball = True
             team_ball_control.append(player.team)
             tracks_collection.update_track(
                 entity_type="players",
@@ -175,8 +194,9 @@ def main():
     speed_and_distance_estimator.draw_speed_and_distance(
         output_video_frames, tracks_collection.tracks)
 
-    # Save video
+    # Almacena el video procesado y las imágenes de los jugadores
     save_video(output_video_frames, './app/res/output_videos/output_video.avi')
+    extract_player_images(video_frames, tracks_collection, './app/res/output_images/')
 
     # Generate diagrams (will save each metric separately)
     generate_diagrams(tracks=tracks_collection.tracks, metrics=metrics)
@@ -196,15 +216,13 @@ def main():
     print("\n" + "=" * 50)
     print("RESUMEN DE MÉTRICAS DE RENDIMIENTO")
     print("=" * 50)
-    print(f"Tiempo total de procesamiento: {total_time:.2f} s")
+    print(f"Tiempo total de procesamiento: {total_time/60:.2f} min")
     print(f"Tiempo promedio por frame: {total_time / len(video_frames):.4f} s")
     print(f"Uso máximo de memoria: {max(metrics['memory_usage']):.2f} MB")
     print(f"Detección de balón: {metrics['ball_detection']['detected']} frames "
           f"({metrics['ball_detection']['detected'] /
           len(tracks_collection.tracks['ball']) * 100:.1f}%)")
-    print(f"Inconsistencias de velocidad: Jugadores={
-        metrics['velocity_inconsistencies']['players']}",
-          f"Árbitros={metrics['velocity_inconsistencies']['referees']}")
+    print(f"Inconsistencias de velocidad: Jugadores={metrics['velocity_inconsistencies']['players']}" )
     print(f"Error de interpolación: {metrics['interpolation_error']:.4f}")
 
 
