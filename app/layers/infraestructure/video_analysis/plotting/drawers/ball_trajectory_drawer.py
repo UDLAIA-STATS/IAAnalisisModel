@@ -13,7 +13,7 @@ from mplsoccer import Pitch
 
 
 class BallTrajectoryDrawer(Diagram):
-    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]]):
+    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]], metrics: Dict | None = None):
         super().__init__(tracks)
         self.base_save_path = './app/res/output_videos/'
         self.ball_positions: List = []

@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 
 class BallDetectionMetricsDrawer(Diagram):
-    def __init__(self, tracks: Dict):
+    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]], metrics: Dict | None = None):
         super().__init__(tracks)
         self.save_path = './app/res/output_videos/ball_detection.png'
 

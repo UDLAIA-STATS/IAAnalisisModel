@@ -11,9 +11,16 @@ from mplsoccer import Pitch
 
 
 class HeatmapDrawer(Diagram):
-    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]]):
+    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]], metrics: Dict | None = None):
         super().__init__(tracks)
         self.save_path = './app/res/output_videos/'
+        path = Path(self.save_path)
+        self.rival_players_path = path / 'rival_players'
+        self.home_players_path = path / 'home_players'
+        path.mkdir(parents=True, exist_ok=True)
+        self.rival_players_path.mkdir(parents=True, exist_ok=True)
+        self.home_players_path.mkdir(parents=True, exist_ok=True)
+
         self.drawer_service = DrawerService()
 
     def draw_and_save(self) -> None:
@@ -75,13 +82,7 @@ class HeatmapDrawer(Diagram):
         plt.close()
 
     def _draw_individual_heatmaps(self) -> None:
-        path = Path(self.save_path)
-        rival_players_path = path / 'rival_players'
-        home_players_path = path / 'home_players'
-
-        path.mkdir(parents=True, exist_ok=True)
-        rival_players_path.mkdir(parents=True, exist_ok=True)
-        home_players_path.mkdir(parents=True, exist_ok=True)
+        
         
         for player_id in set(
             track.track_id for frame in self.tracks.values()
@@ -121,7 +122,7 @@ class HeatmapDrawer(Diagram):
                 alpha=0.6,
                 levels=100,
                 bw_adjust=0.3)
-            plt.savefig(home_players_path / f'heatmap_player_home_{player_id}.png', dpi=300, bbox_inches='tight')
+            plt.savefig(self.home_players_path / f'heatmap_player_home_{player_id}.png', dpi=300, bbox_inches='tight')
             pitch.kdeplot(
                 rival_players.x,
                 rival_players.y,
@@ -131,6 +132,6 @@ class HeatmapDrawer(Diagram):
                 alpha=0.6,
                 levels=100,
                 bw_adjust=0.3)
-            plt.savefig(rival_players_path / f'heatmap_player_rival_{player_id}.png', dpi=300, bbox_inches='tight')
+            plt.savefig(self.rival_players_path / f'heatmap_player_rival_{player_id}.png', dpi=300, bbox_inches='tight')
 
             plt.close()

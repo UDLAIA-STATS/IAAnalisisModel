@@ -11,7 +11,7 @@ from mplsoccer import Pitch
 
 
 class VoronoiDiagramDrawer(Diagram):
-    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]]):  # Cambiado a lista de frames
+    def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]], metrics: Dict | None = None):  # Cambiado a lista de frames
         super().__init__(tracks)
         self.home_team_color = 'blue'
         self.rival_team_color = 'red'
