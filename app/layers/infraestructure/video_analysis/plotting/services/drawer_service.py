@@ -1,51 +1,61 @@
-from typing import Dict, List
-
+from typing import Dict, Tuple
 import pandas as pd
-
+import numpy as np
 from app.layers.domain.tracks.track_detail import TrackDetailBase
 
 
-class DrawerService():
-    def _rgb_to_hex(self, player_color: List[float]) -> str:
-        r = int(round(player_color[0]))
-        g = int(round(player_color[1]))
-        b = int(round(player_color[2]))
-        r = max(0, min(255, r))
-        g = max(0, min(255, g))
-        b = max(0, min(255, b))
-        return f'#{r:02x}{g:02x}{b:02x}'
+class DrawerService:
+    
+    # --------------------------
+    # Transform helpers
+    # --------------------------
+    def _rgb_to_hex(self, player_color: np.ndarray | list | None) -> str:
+        if player_color is None:
+            return "#A41D46"  # fallback color
 
-    def _scale_coordinates(self, x: float, y: float) -> tuple:
-        """Escala las coordenadas al sistema de StatsBomb (120x80)"""
-        # Escala X: de 0-20 a 0-120
-        # Escala Y: de 0-70 a 0-80
-        scaled_x = x * 6  # 20 * 6 = 120
-        scaled_y = y * (80 / 70)  # 70 * (80/70) = 80
-        return scaled_x, scaled_y
+        try:
+            arr = np.array(player_color, dtype=float)
+            arr = np.clip(arr, 0, 255).astype(int)
+            return f'#{arr[0]:02x}{arr[1]:02x}{arr[2]:02x}'
+        except Exception:
+            return "#A41D46"
 
-    def process_frame(self, frame: Dict[int, TrackDetailBase]):
-        """Procesa un frame y devuelve DataFrames escalados"""
+    def _scale_coordinates(self, x: float, y: float) -> Tuple[float, float]:
+        """Escala coordenadas del espacio 0-20/0-70 al sistema StatsBomb 120x80."""
+        return x * 6, y * (80 / 70)
+
+    # --------------------------
+    # FRAME PROCESSING
+    # --------------------------
+    def process_frame(self, frame: Dict[int, TrackDetailBase]) -> Tuple[pd.DataFrame, pd.DataFrame]:
         home_players = []
         rival_players = []
 
         for player_id, track in frame.items():
-            if track.position_transformed is None:
+            # Validación mínima
+            if (
+                track is None
+                or track.position_transformed is None
+                or len(track.position_transformed) < 2
+            ):
                 continue
 
-            # Escalar coordenadas
-            x, y = self._scale_coordinates(*track.position_transformed)
-            team_color = getattr(track, 'team_color')
-            print("Team color for player ", player_id, ": ", team_color)
-            
+            try:
+                x_raw, y_raw = float(track.position_transformed[0]), float(track.position_transformed[1])
+            except (ValueError, TypeError):
+                continue
+
+            x, y = self._scale_coordinates(x_raw, y_raw)
+
             player_data = {
-                'x': x,
-                'y': y,
-                'id': player_id,
-                'team': getattr(track, 'team', -1),
-                'color': self._rgb_to_hex(team_color) if team_color else "#A41D46"
+                "id": player_id,
+                "x": x,
+                "y": y,
+                "team": getattr(track, "team", -1),
+                "color": self._rgb_to_hex(getattr(track, "team_color", None)),
             }
 
-            if getattr(track, 'team', -1) == 1:
+            if player_data["team"] == 1:
                 home_players.append(player_data)
             else:
                 rival_players.append(player_data)

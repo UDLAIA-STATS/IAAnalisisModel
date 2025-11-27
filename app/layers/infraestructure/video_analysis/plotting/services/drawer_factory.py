@@ -15,12 +15,10 @@ class DrawerFactory:
                    drawer_type: Type[Diagram],
                    tracks: Dict[int,
                                 Dict[int,
-                                     TrackDetailBase]],
-                   metrics: Dict | None = None) -> None:
+                                     TrackDetailBase]]) -> None:
         """Runs a specific drawer based on the drawer type."""
 
         if drawer_type is None or not issubclass(drawer_type, Diagram):
             raise DrawerFactoryError(f"Invalid drawer type: {drawer_type}")
-
-        drawer_instance = drawer_type(tracks=tracks, metrics=metrics)
+        drawer_instance = drawer_type(tracks=tracks)
         drawer_instance.draw_and_save()

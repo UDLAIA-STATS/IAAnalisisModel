@@ -7,12 +7,18 @@ from cv2.typing import MatLike
 
 def read_video(video_path: str) -> list[MatLike]:
     cap = cv2.VideoCapture(video_path)
+    print("Is cap opened? ", cap.isOpened())
+
+    if not cap.isOpened():
+        raise FileNotFoundError(f"No se pudo abrir el video: {video_path}")
+
     frames = []
     while True:
         ret, frame = cap.read()
-        if not ret:
+        if not ret or frame is None:
             break
         frames.append(frame)
+    cap.release()
     return frames
 
 
