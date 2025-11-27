@@ -3,9 +3,9 @@ from typing import Dict
 
 import cv2
 from cv2.typing import MatLike
-from app.layers.domain.collections.track_collection import TrackCollection
-from app.layers.domain.tracks.track_detail import TrackBallDetail, TrackDetailBase, TrackPlayerDetail
-from app.layers.infraestructure.video_analysis.services.bbox_processor_service import (
+from app.entities.collections.track_collection import TrackCollection
+from app.entities.tracks.track_detail import TrackBallDetail, TrackDetailBase, TrackPlayerDetail
+from app.modules.services.bbox_processor_service import (
     get_foot_position, measure_scalar_distance)
 
 
