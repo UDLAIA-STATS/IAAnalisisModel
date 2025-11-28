@@ -9,6 +9,7 @@ from app.modules.player_ball_assigner import \
     PlayerBallAssigner
 from app.modules.plotting import generate_diagrams
 from app.modules.services import read_video, extract_player_images
+from app.modules.services.r2_download import R2Downloader
 from app.modules.services.video_processing_service import extract_player_images
 from app.modules.speed_and_distance_estimator import SpeedAndDistanceEstimator
 from app.modules.team_assigner import TeamAssigner
@@ -36,18 +37,29 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
         "interpolation_error": 0.0,
         "velocity_inconsistencies": {"players": 0, "referees": 0},
     }
+    
+    # Descarga video
+    
+    downloader = R2Downloader()
+    
+    video_name = "fb64992c-0a84-4fb5-8c3c-42f4ddbfda1c-1_720p.mkv"
+
+    print(f"Descargando video {video_name}...")
+    downloader.stream_download(key=video_name, destination_path="../res/input_videos/")
+    download_path = downloader.build_destination_path(key=video_name)
+    print(f"Video descargado en {download_path.as_posix()}")
 
     # -----------------------------
     # LECTURA DEL VIDEO
     # -----------------------------
-    video_stream = read_video("../res/input_videos/1_720p.mkv")
+    video_stream = read_video(download_path.as_posix())
     images_per_player = 3
     if not video_stream:
         print("Error: No frames read from video")
         return
 
     tracker = TrackerService(
-        "./app/res/models/best.torchscript",
+        "../res/models/football_model.torchscript",
         use_half_precision=True
     )
 
