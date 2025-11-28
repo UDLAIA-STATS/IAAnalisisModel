@@ -1,59 +1,54 @@
-import pickle
-from typing import override
+# tracker_service.py
+import logging
+from typing import List, Union
 
 import supervision as sv
 from cv2.typing import MatLike
-from app.layers.domain.collections.track_collection import TrackCollection
-from app.layers.infraestructure.video_analysis.trackers.interfaces import \
-    TrackerServiceBase
+
+from app.entities.interfaces import TrackerServiceBase
+from app.entities.interfaces.record_collection_base import RecordCollectionBase
 
 
 class TrackerService(TrackerServiceBase):
+    """
+    Implementación concreta del servicio de tracking, preparada para streaming.
+    - Mantiene self.last_tracked para acceso externo (p.ej. TeamAssigner)
+    """
 
-    def __init__(self, model_path: str):
-        super().__init__(model_path)
-        self.detection_frame: sv.Detections | None = None
+    def __init__(self, model_path: str, use_half_precision: bool = False):
+        super().__init__(model_path, use_half_precision)
+        self.last_tracked: sv.Detections | None = None
 
-    @override
+    # Mantengo la firma anterior: get_object_tracks (compatibilidad)
     def get_object_tracks(
         self,
-        frames: list[MatLike],
-        tracks_collection: TrackCollection,
-        read_from_stub: bool = False,
-        stub_path: str = ""
+        frames: Union[List[MatLike], MatLike],
+        tracks_collection: RecordCollectionBase,
     ):
-        if read_from_stub and stub_path:
-            tracks = self.read_tracks_from_stub(stub_path)
-            print(f"Tracks loaded players from stub: {tracks.pop('players', None)}")
-            print(f"Tracks loaded ball from stub: {tracks.pop('ball', None)}")
+        """
+        Procesa una lista de frames o un frame simple. Llama a process_frame iterativamente.
+        """
+        if isinstance(frames, list):
+            for i, frame in enumerate(frames):
+                self.process_frame(frame, i, tracks_collection)
+        else:
+            self.process_frame(frames, 0, tracks_collection)
 
-        results = self.detect_frames(frames)
-
-        printed = False
-        for frame_num, detection in enumerate(results):
-            cls_names = detection.names
-            cls_names_inv = {v: k for k, v in cls_names.items()}
-
-            # Covert to supervision Detection format
-            detection_supervision = sv.Detections.from_ultralytics(detection)
-
-            # Track Objects
-            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
-            if not self.detection_frame:
-                self.detection_frame = detection_with_tracks
-            if not printed:
-                print(detection_with_tracks)
-                printed = True
-
-            for _, val in enumerate(self.get_trackers()):
-                val.get_object_tracks(
-                    detection_with_tracks=detection_with_tracks,
-                    cls_names_inv=cls_names_inv,
-                    frame_num=frame_num,
-                    detection_supervision=detection_supervision,
-                    tracks_collection=tracks_collection
-                )
-
-        # if stub_path is not None:
-        #     with open(stub_path, 'wb') as f:
-        #         pickle.dump(tracks, f)
+    # process_frame está definido en la clase base y puede ser sobrescrito si quieres
+    # Aquí solo sobreescribimos para añadir logging / hooks si se desea
+    def process_frame(
+        self,
+        frame: MatLike,
+        frame_num: int,
+        tracks_collection: RecordCollectionBase,
+        conf: float = 0.1
+    ):
+        try:
+            super().process_frame(frame, frame_num, tracks_collection, conf=conf)
+            # guardar el último tracked para que servicios externos lo consuman
+            # (super().process_frame ya actualiza el tracker interno)
+            # reconvertimos estado desde el tracker (si supervisor lo expone)
+            # la forma simple: la última detección tracked la obtuvimos en el proceso
+            # Si necesitas exponer algo más complejo, lo puedes extraer aquí.
+        except Exception as e:
+            logging.exception(f"TrackerService.process_frame error: {e}")

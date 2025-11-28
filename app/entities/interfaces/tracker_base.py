@@ -1,23 +1,20 @@
+# tracker_base.py
 from abc import ABC, abstractmethod
-from typing import Dict
-
-import cv2
-import numpy as np
 import supervision as sv
 from cv2.typing import MatLike
-from app.entities.collections.track_collection import TrackCollection
-from app.entities.tracks.track_detail import TrackDetailBase, TrackPlayerDetail
-
-from ultralytics import YOLO
-from ultralytics.engine.results import Results
+from app.entities.interfaces.record_collection_base import RecordCollectionBase
 
 
 class Tracker(ABC):
-    def __init__(self, model: YOLO):
-        self.model = model
-        self.tracker = sv.ByteTrack()
-        # self.metric = nn_matching.NearestNeighborDistanceMetric("cosine", 0.2, None)
-        # self.tracker = DeepSortTracker()
+    """
+    Interfaz base para trackers específicos (players, ball, referees, etc).
+    - NO deben ejecutar el detector.
+    - NO deben crear su propio ByteTrack.
+    - Deben implementar get_object_tracks que recibe detecciones ya trackeadas.
+    """
+
+    def __init__(self):
+        pass
 
     @abstractmethod
     def get_object_tracks(
@@ -26,9 +23,21 @@ class Tracker(ABC):
             cls_names_inv: dict[str, int],
             frame_num: int,
             detection_supervision: sv.Detections,
-            tracks_collection: TrackCollection) -> None:
+            tracks_collection: RecordCollectionBase) -> None:
+        """
+        Procesa detecciones *ya trackeadas* por el servicio:
+        - detection_with_tracks: sv.Detections con atributos de tracking (id, etc.)
+        - cls_names_inv: mapping id->nombre de clase para interpretar label indices
+        - frame_num: numero de frame relativo al batch/frame procesado
+        - detection_supervision: detecciones originales en formato supervision (sin tracks)
+        - tracks_collection: repo/collection para persistir resultados
+        """
         raise NotImplementedError
 
-    def detect_frames(self, frame: MatLike):
-        return self.model.predict(frame, conf=0.1)
-        
+    @abstractmethod
+    def reset(self) -> None:
+        """
+        Resetea el estado interno del tracker.
+        NO toca la DB.
+        """
+        raise NotImplementedError

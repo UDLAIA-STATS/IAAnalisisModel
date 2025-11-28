@@ -34,22 +34,6 @@ def read_video(video_path: str, target_width: int = 640, sample_rate=1) -> Gener
 
     cap.release()
 
-
-def save_video(ouput_video_frames, output_video_path: str):
-    folder = pathlib.Path(output_video_path).parent
-    if not folder.exists():
-        folder.mkdir(parents=True, exist_ok=True)
-
-    fourcc = cv2.VideoWriter.fourcc(*'XVID')
-    out = cv2.VideoWriter(
-        output_video_path,
-        fourcc,
-        24,
-        (ouput_video_frames[0].shape[1],
-         ouput_video_frames[0].shape[0]))
-    for frame in ouput_video_frames:
-        out.write(frame)
-    out.release()
     
 def extract_player_images(
     video_frames: List[MatLike],

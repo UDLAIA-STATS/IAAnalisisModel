@@ -1,120 +1,92 @@
 import cv2
 import numpy as np
 
-from app.entities.collections.track_collection import TrackCollection
+from app.entities.interfaces.record_collection_base import RecordCollectionBase
 
 
 class ViewTransformer:
+    """
+    Transforma un punto desde coordenadas de imagen a coordenadas reales del campo.
+    Se integra con RecordCollectionBase para persistir puntos transformados.
+    """
+
     def __init__(self):
-        # Court dimensions in meters (width and length)
-        COURT_WIDTH = 68
-        COURT_LENGTH = 23.32
+        # Medidas reales del campo de fútbol (en metros)
+        FIELD_LENGTH = 105.0
+        FIELD_WIDTH = 68.0
 
-        # Define source quadrilateral in image pixels
+        # Coordenadas del polígono detectado en la imagen (4 puntos en píxeles)
         self.pixel_vertices = np.array([
-            [110, 1035],  # Bottom-left corner
-            [265, 275],   # Top-left corner
-            [910, 260],   # Top-right corner
-            [1640, 915]   # Bottom-right corner
+            [110, 1035],   # Bottom-left
+            [265, 275],    # Top-left
+            [910, 260],    # Top-right
+            [1640, 915]    # Bottom-right
         ], dtype=np.float32)
 
-        # Define target rectangle in real-world coordinates (meters)
+        # Corregir contorno para pointPolygonTest
+        self.pixel_vertices_contour = self.pixel_vertices.reshape((-1, 1, 2))
+
+        # Mapa de proyección destino en metros
         self.target_vertices = np.array([
-            [0, COURT_WIDTH],         # Bottom-left
-            [0, 0],                    # Top-left
-            [COURT_LENGTH, 0],         # Top-right
-            [COURT_LENGTH, COURT_WIDTH]  # Bottom-right
+            [0, FIELD_WIDTH],     # Bottom-left
+            [0, 0],               # Top-left
+            [FIELD_LENGTH, 0],    # Top-right
+            [FIELD_LENGTH, FIELD_WIDTH]  # Bottom-right
         ], dtype=np.float32)
 
-        # Create perspective transformation matrix
+        # Matriz de transformación perspectiva
         self.perspective_transform = cv2.getPerspectiveTransform(
             self.pixel_vertices,
             self.target_vertices
         )
 
-    def transform_point(self, point):
-        """Transform a point from image coordinates to court coordinates"""
-        # Convert to integer for polygon test
-        int_point = (int(point[0]), int(point[1]))
+    # ---------------------------------------------------------
+    # TRANSFORMACIÓN DE UN PUNTO INDIVIDUAL
+    # ---------------------------------------------------------
 
-        # Check if point is within the court boundaries
-        if cv2.pointPolygonTest(self.pixel_vertices, int_point, False) < 0:
+    def transform_point(self, point_xy: np.ndarray):
+        """
+        Transforma un punto x,y a coordenadas reales del campo.
+        Retorna None si el punto está fuera del polígono del campo.
+        """
+        x, y = float(point_xy[0]), float(point_xy[1])
+        point_int = (int(x), int(y))
+
+        # Validación: fuera del campo
+        if cv2.pointPolygonTest(self.pixel_vertices_contour, point_int, False) < 0:
             return None
 
-        # Reshape point to OpenCV format: (1, 1, 2)
-        reshaped_point = point.reshape(-1, 1, 2).astype(np.float32)
+        # OpenCV requiere shape (1,1,2)
+        p = np.array([[[x, y]]], dtype=np.float32)
 
-        # Apply perspective transformation
-        transformed_point = cv2.perspectiveTransform(
-            reshaped_point,
-            self.perspective_transform
-        )
+        warped = cv2.perspectiveTransform(p, self.perspective_transform)
 
-        # Return as flat (x,y) coordinates
-        return transformed_point.reshape(-1, 2)
+        return warped.reshape(2).tolist()  # [x,y] en metros
 
-    def add_transformed_position_to_tracks(
-            self,
-            tracks_collection: TrackCollection):
-        """Add transformed positions to tracking data"""
-        for entity_type, frames in tracks_collection.tracks.items():
-            for frame_num, tracks_in_frames in frames.items():
-                for track_id, track_detail in tracks_in_frames.items():
-                    # Get adjusted position from tracking data
-                    position_adjusted = np.array(
-                        track_detail.position_adjusted)
-                    # Transform to court coordinates
-                    position_transformed = self.transform_point(
-                        position_adjusted)
+    # ---------------------------------------------------------
+    # INTEGRACIÓN CON RECORD COLLECTION BASE
+    # ---------------------------------------------------------
 
-                    # Store result (converted to list if valid)
-                    position_transformed = (
-                        position_transformed.squeeze().tolist()
-                        if position_transformed is not None
-                        else None)
-                    track_detail.update(position_transformed=position_transformed)
-                    # track_detail.position_transformed = position_transformed
-                    tracks_collection.update_track(
-                        entity_type=entity_type,
-                        frame_num=frame_num,
-                        track_id=track_id,
-                        track_detail=track_detail
-                    )
+    def add_transformed_positions(self, records: RecordCollectionBase):
+        """
+        Itera sobre todos los registros persistidos y calcula position_transformed.
+        Compatible con la API real de RecordCollectionBase.
+        """
 
-        # for object_type, object_tracks in tracks.items():
-        #     for frame_idx, frame_tracks in enumerate(object_tracks):
-        #         for track_id, track_info in frame_tracks.items():
-        #             # Get adjusted position from tracking data
-        #             position_adjusted = np.array(
-        #                 track_info['position_adjusted'])
+        all_records = records.get_all()
 
-        #             # Transform to court coordinates
-        #             position_transformed = self.transform_point(
-        #                 position_adjusted)
+        for record in all_records:
 
-        #             # Store result (converted to list if valid)
-        #             track_info['position_transformed'] = (
-        #                 position_transformed.squeeze().tolist()
+            pos_adj = getattr(record, "position_adjusted", None)
+            if not pos_adj:
+                continue
 
-        #                 if position_transformed is not None
-        #                 else None
-        #             )
-        #             position_transformed = (position_transformed.squeeze().tolist()
-        #                     if position_transformed is not None
-        #                     else None)
-        #             if object_type == 'ball':
-        #                 ball_track = TrackBallDetail(position_transformed=position_transformed)
-        #                 tracks_collection.update_track(
-        #                     frame_num=frame_idx,
-        #                     track_id=track_id,
-        #                     track_detail=ball_track,
-        #                     entity_type="ball"
-        #                 )
-        #             else:
-        #                 player_track = TrackPlayerDetail(position_transformed=position_transformed)
-        #                 tracks_collection.update_track(
-        #                     entity_type="players",
-        #                     frame_num=frame_idx,
-        #                     track_id=track_id,
-        #                     track_detail=player_track
-        #                     )
+            px, py = float(pos_adj[0]), float(pos_adj[1])
+
+            transformed = self.transform_point(np.array([px, py], dtype=np.float32))
+
+            # Persiste solo el campo transformado
+            records.patch(
+                record.id,
+                {"position_transformed": transformed}
+            )

@@ -12,3 +12,13 @@ class BallEventModel(Base):
     y = Column(Float)
     z = Column(Float)
     owner_id = Column(Integer)
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "frame_index": self.frame_index,
+            "x": self.x,
+            "y": self.y,
+            "z": self.z,
+            "owner_id": self.owner_id,
+        }

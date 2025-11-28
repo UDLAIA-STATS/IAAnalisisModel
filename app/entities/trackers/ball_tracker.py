@@ -1,14 +1,38 @@
-from typing import Dict, Hashable
-import pandas as pd
+import logging
+import json
+from typing import Dict, Hashable, Optional
+
+import numpy as np
 import supervision as sv
-from app.entities.collections.track_collection import TrackCollection
-from app.entities.tracks.track_detail import TrackBallDetail, TrackDetailBase
+
 from app.entities.interfaces.tracker_base import Tracker
+from app.entities.interfaces.record_collection_base import RecordCollectionBase
 
 
 class BallTracker(Tracker):
-    def __init__(self, model):
-        super().__init__(model)
+    """
+    Guarda eventos del balón en la colección (BallEventModel).
+    - No usa TrackDetailBase.
+    - Usa FIXED_BALL_ID sólo internamente si hace falta; el modelo BallEventModel
+      está indexado por frame_index.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def _bbox_to_center_xy(bbox: list) -> tuple[float, float]:
+        x1, y1, x2, y2 = bbox
+        cx = float((x1 + x2) / 2.0)
+        cy = float((y1 + y2) / 2.0)
+        return cx, cy
+    
+    def reset(self):
+        """
+        Resetea el estado interno del tracker.
+        """
+        # BallTracker no mantiene estado interno por ahora
+        pass
 
     def get_object_tracks(
         self,
@@ -16,87 +40,91 @@ class BallTracker(Tracker):
         cls_names_inv: dict[str, int],
         frame_num: int,
         detection_supervision: sv.Detections,
-        tracks_collection: TrackCollection
+        tracks_collection: RecordCollectionBase
     ):
-        bbox = detection_with_tracks.xyxy
-        class_ids = detection_with_tracks.class_id
-        track_ids = detection_with_tracks.tracker_id
-        ball_mask = class_ids == cls_names_inv['ball']
-
-        if ball_mask is not None and track_ids is not None and track_ids.any() and ball_mask.any():
-            ball_bbox = bbox[ball_mask][0].tolist()
-            ball_id = 1
-            track = TrackBallDetail(bbox=ball_bbox, track_id=int(ball_id))
-            tracks_collection.update_track(
-                frame_num=frame_num,
-                track_id=int(ball_id),
-                track_detail=track,
-                entity_type="ball")
-
-        # for frame_detection in detection_supervision:
-        #     bbox = frame_detection[0].tolist()
-        #     cls_id = frame_detection[3]
-
-        #     if cls_id == cls_names_inv['ball']:
-        #         tracks["ball"][frame_num][1] = {"bbox": bbox}
-
-    def interpolate_ball_positions(
-            self,
-            ball_tracks: Dict[int, Dict[int, TrackDetailBase]]
-    ) -> Dict[Hashable, Dict[int, Dict[str, list]]]:
         """
-    Interpola posiciones del balón entre frames perdidos.
+        Extrae la primera detección de clase 'ball' (si existe) y persiste un
+        registro en BallEventModel via tracks_collection.post/patch.
+        """
 
-    Args:
-        ball_tracks: dict con estructura {frame_num: {track_id: TrackBallDetail}}
-        max_gap: máximo número de frames consecutivos sin detección que se interpolan
-    """
-    #     positions = {
-    #     frame: track[1].bbox
-    #     for frame, track in ball_tracks.items()
-    #     if 1 in track and track[1].bbox is not None
-    # }
-        
-        ball_positions = {}
-        frame_indices = []
-        for frame_num, tracks_in_frame in ball_tracks.items():
-            for track_id, track in tracks_in_frame.items():
-                ball_positions[frame_num] = track.bbox
-                frame_indices.append(frame_num)
+        if detection_with_tracks is None:
+            return
 
-        # DataFrame con índice de frames
-        df_ball = pd.DataFrame.from_dict(
-            ball_positions, orient="index", columns=["x1", "y1", "x2", "y2"]
-        ).sort_index()
+        xyxy = getattr(detection_with_tracks, "xyxy", None)
+        class_ids = getattr(detection_with_tracks, "class_id", None)
 
-        # Interpolación
-        df_ball = df_ball.interpolate(limit_direction="both")
+        if xyxy is None or class_ids is None:
+            return
 
-        # Reconstruir como dict indexado por frame
-        interpolated_tracks = {
-            frame: {1: {"bbox": row.tolist()}}
-            for frame, row in df_ball.iterrows()
+        # normalizar arrays
+        try:
+            class_ids_arr = np.asarray(class_ids)
+            xyxy_arr = np.asarray(xyxy)
+        except Exception:
+            class_ids_arr = class_ids
+            xyxy_arr = xyxy
+
+        ball_class_idx = cls_names_inv.get("ball")
+        if ball_class_idx is None:
+            logging.debug("[BallTracker] 'ball' class not present in cls_names_inv")
+            return
+
+        # mascara y existencia
+        try:
+            mask = class_ids_arr == ball_class_idx
+        except Exception:
+            mask = (class_ids_arr == ball_class_idx)
+
+        if not getattr(mask, "any", lambda: False)():
+            return
+
+        # tomar la primera bbox detectada de balón
+        try:
+            ball_bbox = xyxy_arr[mask][0].tolist()
+        except Exception:
+            logging.debug("[BallTracker] Error extracting ball bbox")
+            return
+
+        cx, cy = self._bbox_to_center_xy(ball_bbox)
+
+        payload = {
+            "frame_index": int(frame_num),
+            "x": float(cx),
+            "y": float(cy),
+            "z": 0.0,
+            "owner_id": None
         }
-        return interpolated_tracks
 
-        # ball_positions= []
-        # for frame_num, tracks_in_frame in ball_tracks.items():
-        #     for tracks in tracks_in_frame.values():
-        #         print("Bbox is of type: ", type(tracks.bbox))
-        #         ball_positions.append(tracks.bbox)
+        # Intentar buscar registro existente usando la API genérica
+        existing = None
+        try:
+            if hasattr(tracks_collection, "get_record_for_frame"):
+                existing = tracks_collection.get_record_for_frame(
+                    track_id=0,        # para ball, track_id no aplica; método puede ignorarlo
+                    frame_index=int(frame_num)
+                )
+        except Exception:
+            existing = None
 
-        # # Create a DataFrame to handle missing values
-        # df_ball = pd.DataFrame(
-        #     ball_positions,
-        #     columns=['x1', 'y1', 'x2', 'y2']
-        # )
+        # Si get_record_for_frame no es suficientemente específico (ej. no filtra por frame_index),
+        # hacer una consulta directa por frame_index
+        if existing is None:
+            try:
+                orm = getattr(tracks_collection, "orm_model", None)
+                db = getattr(tracks_collection, "db", None)
+                if orm is not None and db is not None and hasattr(orm, "frame_index"):
+                    existing = (
+                        db.query(orm)
+                        .filter(orm.frame_index == int(frame_num))
+                        .first()
+                    )
+            except Exception:
+                existing = None
 
-        # # Interpolate middle gaps, then fill leading/trailing NaNs
-        # df_ball = df_ball.interpolate(limit_direction='both')
-
-        # ball_positions = [
-        #     {1: {"bbox": row}}
-        #     for row in df_ball.to_numpy().tolist()
-        # ]
-
-        # return ball_positions
+        try:
+            if existing:
+                tracks_collection.patch(existing.id, payload)
+            else:
+                tracks_collection.post(payload)
+        except Exception as e:
+            logging.exception(f"[BallTracker] DB error persisting ball event: {e}")

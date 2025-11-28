@@ -1,167 +1,160 @@
 import logging
-from typing import Dict, List
-from sklearn.cluster import KMeans
+from typing import Dict, List, Optional
 from cv2.typing import MatLike
+import numpy as np
+from sklearn.cluster import KMeans
 from app.entities.tracks.track_detail import TrackDetailBase
+from app.entities.utils.singleton import Singleton
 
 
-class TeamAssigner:
+class TeamAssigner(metaclass=Singleton):
+    """
+    Optimizado para trabajar *por frame*, con múltiples jugadores.
+    - Manejo seguro de bboxes inválidos
+    - KMeans solo cuando hay información suficiente
+    - Limpieza en logs
+    - Código más compacto y eficiente
+    """
+
     def __init__(self):
-        self.team_colors = {}
-        self.player_team_dict = {}
+        self.team_colors: Dict[int, np.ndarray] = {}
+        self.player_team_dict: Dict[int, int] = {}
+        self.kmeans: Optional[KMeans] = None
 
-    def get_clustering_model(self, image):
-        # Reshape the image to 2D array
-        print("Reshaping image to 2D array, actual image shape: ", image.shape)
-        image_2d = image.reshape(-1, 3)
-        print("Reshaped image shape: ", image_2d.shape)
+    # -------------------------------------------
+    # Utils
+    # -------------------------------------------
+    def get_coords_from_bbox(self, frame: MatLike, bbox: List[int]):
+        h, w = frame.shape[:2]
 
-        # Preform K-means with 2 clusters
-        kmeans = KMeans(n_clusters=2, init="k-means++", n_init=1)
-        print("Fitting KMeans model")
-        kmeans.fit(image_2d)
-        print("KMeans model fitted")
-
-        return kmeans
-    
-    def get_coords_from_bbox(self, frame: MatLike, bbox: List):
-        frame_h, frame_w = frame.shape[:2]
-        
         x1 = max(0, int(bbox[0]))
         y1 = max(0, int(bbox[1]))
-        x2 = min(frame_w - 1, int(bbox[2]))
-        y2 = min(frame_h - 1, int(bbox[3]))
+        x2 = min(w - 1, int(bbox[2]))
+        y2 = min(h - 1, int(bbox[3]))
+
         return x1, y1, x2, y2
-    
-    def validate_frame(
-        self,
-        frame: MatLike,
-        bbox: List):
+
+    def validate_bbox_area(self, frame: MatLike, bbox: List[int]) -> bool:
+        """
+        Validación rápida antes de procesar.
+        Evita trabajo innecesario.
+        """
         x1, y1, x2, y2 = self.get_coords_from_bbox(frame, bbox)
-        
+
         if x2 <= x1 or y2 <= y1:
             return False
-        
-        image = frame[y1:y2, x1:x2]
-        if image.size == 0:
-            return False
-        
-        top_half_image = image[:int(image.shape[0] / 2), :]
-        if top_half_image.size == 0:
-            return False
-        return True
 
-    def get_player_color(
-            self,
-            frame: MatLike,
-            bbox: List):
-        print("Getting player color")
-        validate = self.validate_frame(frame, bbox)
-        x1, y1, x2, y2 = self.get_coords_from_bbox(frame, bbox)
-        if not validate:
-            print("Invalid frame or bbox, returning default color.")
+        # recorte
+        crop = frame[y1:y2, x1:x2]
+        if crop.size == 0:
+            return False
+
+        # tomar solo la mitad superior
+        top = crop[: max(1, crop.shape[0] // 2), :]
+
+        return top.size > 0
+
+    # -------------------------------------------
+    # Color Extraction
+    # -------------------------------------------
+    def extract_player_color(self, frame: MatLike, bbox: List[int]) -> Optional[np.ndarray]:
+        """
+        Devuelve un color dominante (RGB) o None.
+        """
+        if not self.validate_bbox_area(frame, bbox):
             return None
-        
-        # image = frame[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])]
-        image = frame[y1:y2, x1:x2]
 
-        top_half_image = image[:int(image.shape[0] / 2), :]
+        x1, y1, x2, y2 = self.get_coords_from_bbox(frame, bbox)
+        crop = frame[y1:y2, x1:x2]
 
-        # Get Clustering model
-        kmeans = self.get_clustering_model(top_half_image)
+        # mitad superior
+        top = crop[: crop.shape[0] // 2, :]
 
-        # Get the cluster labels forr each pixel
-        print("Getting cluster labels")
-        labels = kmeans.labels_
+        # a 2D
+        pixels = top.reshape(-1, 3)
 
-        # Reshape the labels to the image shape
-        print("Reshaping labels to image shape")
-        clustered_image = labels.reshape(
-            top_half_image.shape[0], top_half_image.shape[1])
+        # si hay pocos pixeles → no vale la pena fit
+        if pixels.shape[0] < 20:
+            return None
 
-        # Get the player cluster
-        print("Getting player cluster")
-        corner_clusters = [clustered_image[0, 0], clustered_image[0, -1],
-                           clustered_image[-1, 0], clustered_image[-1, -1]]
-        non_player_cluster = max(
-            set(corner_clusters),
-            key=corner_clusters.count)
+        try:
+            kmeans = KMeans(n_clusters=2, init="k-means++", n_init=1)
+            kmeans.fit(pixels)
+        except Exception as e:
+            logging.debug(f"KMeans failed on player crop: {e}")
+            return None
+
+        labels = kmeans.labels_.reshape(top.shape[:2])
+
+        # detectar cluster que NO es la camiseta (fondo)
+        corners = [
+            labels[0, 0], labels[0, -1],
+            labels[-1, 0], labels[-1, -1]
+        ]
+        non_player_cluster = max(set(corners), key=corners.count)
         player_cluster = 1 - non_player_cluster
 
-        player_color = kmeans.cluster_centers_[player_cluster]
-        print("Player color: ", player_color)
+        return kmeans.cluster_centers_[player_cluster]
 
-        return player_color
+    # -------------------------------------------
+    # Training clusters per frame
+    # -------------------------------------------
+    def assign_team_colors(self, frame: MatLike, players: Dict[int, TrackDetailBase]):
+        """
+        Calcula los 2 clusters de color del frame.
+        """
+        valid_colors = []
 
-    def assign_team_color(
-            self,
-            frame: MatLike,
-            player_detections: Dict[int, TrackDetailBase]):
-
-        player_colors = []
-        for _, player_detection in player_detections.items():
-            bbox = player_detection.bbox
-            if bbox is None:
-                print("BBox is None, skipping player detection.")
+        for _, det in players.items():
+            if det.bbox is None:
                 continue
-            print("Trying to get player color with bbox: ", bbox)
-            player_color = self.get_player_color(frame, bbox)
-            print("Player color: ", player_color)
-            player_colors.append(player_color)
 
-        kmeans = KMeans(n_clusters=2, init="k-means++", n_init=10)
-        print("Player colors: ", player_colors)
-        kmeans.fit(player_colors)
+            color = self.extract_player_color(frame, det.bbox)
+
+            if color is not None:
+                valid_colors.append(color)
+
+        if len(valid_colors) < 2:
+            logging.debug("Not enough valid colors to cluster teams.")
+            return
+
+        try:
+            kmeans = KMeans(n_clusters=2, init="k-means++", n_init=10)
+            kmeans.fit(valid_colors)
+        except Exception as e:
+            logging.debug(f"Team KMeans failed: {e}")
+            return
 
         self.kmeans = kmeans
+        self.team_colors = {
+            1: kmeans.cluster_centers_[0],
+            2: kmeans.cluster_centers_[1]
+        }
 
-        self.team_colors[1] = kmeans.cluster_centers_[0]
-        self.team_colors[2] = kmeans.cluster_centers_[1]
-
-    # def get_player_team(self, frame: MatLike, player_bbox, player_id):
-    #     if player_id in self.player_team_dict:
-    #         return self.player_team_dict[player_id]
-
-    #     player_color = self.get_player_color(frame, player_bbox)
-    #     if player_color is None:
-    #         logging.debug(f"Could not determine color for player {player_id}, assigning team -1")
-    #         return -1
-
-    #     team_id = self.kmeans.predict(player_color.reshape(1, -1))[0]
-    #     team_id += 1
-
-    #     if player_id == 91:
-    #         team_id = 1
-
-    #     self.player_team_dict[player_id] = team_id
-
-    #     return team_id
-
-    def get_player_team(self, frame: MatLike, player_bbox, player_id: int):
-        # Si ya se asignó el equipo previamente, usar ese valor
+    # -------------------------------------------
+    # Team Assignment
+    # -------------------------------------------
+    def get_player_team(self, frame: MatLike, bbox: List[int], player_id: int) -> int:
+        """
+        Devuelve 1, 2 o -1.
+        """
+        # cache
         if player_id in self.player_team_dict:
             return self.player_team_dict[player_id]
 
-        # Validar existencia del modelo
-        if not hasattr(self, "kmeans"):
-            logging.debug("KMeans model not found, cannot assign team.")
+        if self.kmeans is None:
+            logging.debug("KMeans model not initialized yet.")
             return -1
 
-        # Obtener color dominante del jugador
-        player_color = self.get_player_color(frame, player_bbox)
-        if player_color is None:
-            logging.debug(f"⚠️ Could not get color for player {player_id}, bbox={player_bbox}")
+        color = self.extract_player_color(frame, bbox)
+        if color is None:
             return -1
 
-        # Predicción del equipo
         try:
-            team_id = int(self.kmeans.predict(player_color.reshape(1, -1))[0]) + 1
+            pred = int(self.kmeans.predict(color.reshape(1, -1))[0]) + 1
         except Exception as e:
-            logging.debug(f"⚠️ Error predicting team for player {player_id}: {e}")
+            logging.debug(f"Prediction error for player {player_id}: {e}")
             return -1
 
-        # Guardar resultado en cache
-        self.player_team_dict[player_id] = team_id
-        logging.debug(f"✅ Player {player_id} assigned to team {team_id}")
-
-        return team_id
+        self.player_team_dict[player_id] = pred
+        return pred

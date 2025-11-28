@@ -104,13 +104,23 @@ class CameraMovementEstimator():
 
         for frame_num in range(1, len(frames)):
             frame_gray = cv2.cvtColor(frames[frame_num], cv2.COLOR_BGR2GRAY)
-            new_features, _, _ = cv2.calcOpticalFlowPyrLK(
-                old_gray,
-                frame_gray,
-                old_features,
-                None,  # type: ignore
-                **self.lk_params  # type: ignore
-            )
+
+            if old_features is None or len(old_features) == 0:
+                new_features = cv2.goodFeaturesToTrack(
+                    frame_gray, **self.features)  # type: ignore
+                if new_features is None:
+                    camera_movement[frame_num] = [0, 0] # type: ignore
+                    old_gray = frame_gray.copy()
+                    continue
+            else:
+                new_features, _, _ = cv2.calcOpticalFlowPyrLK(
+                    old_gray,
+                    frame_gray,
+                    old_features,
+                    None,  # type: ignore
+                    **self.lk_params  # type: ignore
+                )
+
             # new_features, _, _ =
             # cv2.calcOpticalFlowFarneback(old_gray, frame_gray,
             # old_features, None, **self.lk_params)
@@ -119,7 +129,7 @@ class CameraMovementEstimator():
             camera_movement_x, camera_movement_y = 0, 0
 
             camera_movement_x, camera_movement_y, max_distance = self.update_camera_distance(
-                new_features, old_features)
+                new_features, old_features) # type: ignore
 
             if max_distance > self.minimum_distance:
                 camera_movement[frame_num] = [camera_movement_x, camera_movement_y]  # type: ignore

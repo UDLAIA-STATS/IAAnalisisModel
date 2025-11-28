@@ -1,8 +1,11 @@
+# record_collection_base.py
 from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
 from typing import Type, List, Optional
+from app.entities.utils import AbstractSingleton
 
-class RecordCollectionBase(ABC):
+
+class RecordCollectionBase(metaclass=AbstractSingleton):
     orm_model: Type
 
     def __init__(self, db: Session):
@@ -10,41 +13,43 @@ class RecordCollectionBase(ABC):
 
     @abstractmethod
     def generate_id(self, obj) -> int:
-        """Extraer o generar el ID de la entidad."""
+        """
+        Genera el ID único usado en la base (depende del tipo de entidad).
+        """
         pass
 
-    def get(self, obj_id: int):
+    def get_record_for_frame(self, track_id: int, frame_index: int):
         """
-        Return the object with the given id if it exists, otherwise None
-
-        Args:
-            obj_id (int): The id of the object to retrieve
-
-        Returns:
-            Optional[self.orm_model]: The retrieved object, or None if not found
+        Busca si existe un registro coincidente con track_id + frame_index.
+        Las colecciones pueden sobrescribir este método si usan otros campos.
         """
+
+        # Not all ORM models have both fields, but most do (players/ball).
+        query = self.db.query(self.orm_model)
+
+        # Solo agregar filtros si existen esos campos en el modelo.
+        if hasattr(self.orm_model, "track_id"):
+            query = query.filter(self.orm_model.track_id == track_id)
+
+        if hasattr(self.orm_model, "frame_index"):
+            query = query.filter(self.orm_model.frame_index == frame_index)
+
+        return query.first()
+
+    def get_by_id(self, obj_id: int):
         return self.db.query(self.orm_model).filter(self.orm_model.id == obj_id).first()
 
-    def get_all(self) -> List:
-        
-        """
-        Retrieve all objects from the database.
+    def get(self, obj_id: int):
+        return (
+            self.db.query(self.orm_model)
+            .filter(self.orm_model.id == obj_id)
+            .first()
+        )
 
-        Returns:
-            List[self.orm_model]: A list of all objects in the database
-        """
+    def get_all(self) -> List:
         return self.db.query(self.orm_model).all()
 
     def post(self, obj_data: dict):
-        """
-        Create a new object in the database based on the given data.
-
-        Args:
-            obj_data (dict): A dictionary containing the data to create the object
-
-        Returns:
-            self.orm_model: The newly created object
-        """
         obj = self.orm_model(**obj_data)
         self.db.add(obj)
         self.db.commit()
@@ -52,16 +57,6 @@ class RecordCollectionBase(ABC):
         return obj
 
     def patch(self, obj_id: int, updates: dict):
-        """
-        Update an object in the database with the given id, by applying the given updates.
-
-        Args:
-            obj_id (int): The id of the object to update
-            updates (dict): A dictionary containing the key-value pairs to update
-
-        Returns:
-            Optional[self.orm_model]: The updated object, or None if not found
-        """
         obj = self.get(obj_id)
         if not obj:
             return None
@@ -75,15 +70,6 @@ class RecordCollectionBase(ABC):
         return obj
 
     def delete(self, obj_id: int) -> bool:
-        """
-        Delete an object from the database with the given id.
-
-        Args:
-            obj_id (int): The id of the object to delete
-
-        Returns:
-            bool: True if the object was deleted, False if not found
-        """
         obj = self.get(obj_id)
         if not obj:
             return False
