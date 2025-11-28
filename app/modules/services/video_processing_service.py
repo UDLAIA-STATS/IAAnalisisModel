@@ -4,6 +4,9 @@ from typing import Generator, List
 import cv2
 from cv2.typing import MatLike
 
+from app.entities.interfaces.record_collection_base import RecordCollectionBase
+from app.entities.models import PlayerStateModel
+
 
 def read_video(video_path: str, target_width: int = 640, sample_rate=1) -> Generator[tuple[MatLike, float]]:
     cap = cv2.VideoCapture(video_path)
@@ -34,42 +37,86 @@ def read_video(video_path: str, target_width: int = 640, sample_rate=1) -> Gener
 
     cap.release()
 
-    
+
 def extract_player_images(
-    video_frames: List[MatLike],
-    tracks_collection,
-    output_folder: str
+    frame: MatLike,
+    frame_index: int,
+    player,
+    output_folder: str,
+    player_image_counts: dict, 
+    last_frame_taken: dict,
+    images_per_player: int = 3,
+    frame_skip: int = 5,
 ):
+    """
+    Extrae imágenes de torso/cara de jugadores PARA EL FRAME ACTUAL.
+    Esta función debe llamarse en cada iteración del lector de video.
+
+    :param frame: Frame actual del video
+    :param frame_index: Índice del frame actual
+    :param records: Lista de records del frame actual (track_id, bbox, etc.)
+    :param output_folder: Carpeta de salida
+    :param images_per_player: Máximo de imágenes por jugador
+    :param frame_skip: Diferencia mínima entre capturas del mismo jugador
+    :param player_image_counts: Mapa acumulado {player_id: cantidad}
+    :param last_frame_taken: Mapa {player_id: ultimo_frame_guardado}
+    """
+
     folder = pathlib.Path(output_folder)
     folder.mkdir(parents=True, exist_ok=True)
 
-    saved_ids = set() 
+    if player_image_counts is None:
+        player_image_counts = {}
 
-    for frame_num, player_track in tracks_collection.tracks["players"].items():
-        for player_id, track in player_track.items():
-            if player_id in saved_ids:
-                continue
+    if last_frame_taken is None:
+        last_frame_taken = {}
 
-            bbox = track.bbox
-            if bbox is None or len(bbox) != 4:
-                continue  # Evita errores si el bbox no es válido
+    h, w = frame.shape[:2]
 
-            x1, y1, x2, y2 = map(int, bbox)
+    # Procesar solo records del frame actual
+    record = player.to_dict()
+    player_id = record.get("player_id", None)
+    bbox = player.get_bbox()
 
-            # Validación de límites dentro del frame
-            frame = video_frames[int(frame_num)]
-            h, w = frame.shape[:2]
-            x1, y1 = max(0, x1), max(0, y1)
-            x2, y2 = min(w, x2), min(h, y2)
-            if x2 <= x1 or y2 <= y1:
-                continue  # Bounding box inválido
+    if bbox is None or len(bbox) != 4:
+        return player_image_counts, last_frame_taken
 
-            # Recorte del jugador
-            player_image = frame[y1:y2, x1:x2]
+    # Máximo por jugador
+    count = player_image_counts.get(player_id, 0)
+    if count >= images_per_player:
+        return player_image_counts, last_frame_taken
 
-            # Guardar imagen
-            player_image_path = folder / f"player_{player_id}_frame_{frame_num}.png"
-            cv2.imwrite(str(player_image_path), player_image)
+    # Saltar frames cercanos
+    last_f = last_frame_taken.get(player_id, -frame_skip - 1)
+    if frame_index - last_f < frame_skip:
+        return player_image_counts, last_frame_taken
+    
+    h, w = frame.shape[:2]
 
-            # Marcar este track_id como ya guardado
-            saved_ids.add(player_id)
+    # Validar bounding box
+    x1, y1, x2, y2 = map(int, bbox)
+
+    x1 = max(0, min(x1, w - 1))
+    x2 = max(0, min(x2, w - 1))
+    y1 = max(0, min(y1, h - 1))
+    y2 = max(0, min(y2, h - 1))
+
+    if x2 <= x1 or y2 <= y1:
+        return player_image_counts, last_frame_taken
+
+    if (x2 - x1) < 10 or (y2 - y1) < 10:
+        return player_image_counts, last_frame_taken
+    
+    torso_y2 = y1 + int((y2 - y1) * 0.6)
+    crop = frame[y1:torso_y2, x1:x2]
+    
+    if crop.size == 0:
+        return player_image_counts, last_frame_taken
+
+    # Guardar imagen
+    filename = folder / f"player_{player_id}_img_{count+1}_frame_{frame_index}.png"
+    cv2.imwrite(str(filename), crop)
+    player_image_counts.update({player_id: count + 1})
+    last_frame_taken.update({player_id: frame_index})
+
+    return player_image_counts, last_frame_taken
