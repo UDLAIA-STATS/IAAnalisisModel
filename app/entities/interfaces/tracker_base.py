@@ -1,7 +1,5 @@
-# tracker_base.py
 from abc import ABC, abstractmethod
 import supervision as sv
-from cv2.typing import MatLike
 from app.entities.interfaces.record_collection_base import RecordCollectionBase
 
 

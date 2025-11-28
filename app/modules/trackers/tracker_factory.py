@@ -1,7 +1,7 @@
 from typing import Dict, Type
 
 from app.entities.interfaces.tracker_base import Tracker
-from ultralytics import YOLO
+from ultralytics.models import YOLO
 
 from app.entities.trackers.ball_tracker import BallTracker
 from app.entities.trackers.player_tracker import PlayerTracker

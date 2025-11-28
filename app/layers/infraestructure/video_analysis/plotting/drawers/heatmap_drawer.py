@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, Set
+from matplotlib import pyplot as plt
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.stats import gaussian_kde
 from mplsoccer import Pitch
@@ -24,10 +24,10 @@ class HeatmapDrawer(Diagram):
         self.rival_players_path = base / "rival_players"
         self.home_players_path = base / "home_players"
 
-        for p in [base, self.rival_players_path, self.home_players_path]:
+        for p in (self.save_path, self.rival_players_path, self.home_players_path):
             p.mkdir(parents=True, exist_ok=True)
 
-        self.drawer_service = DrawerService()
+        self.drawer = DrawerService()
 
         # Pitch preinstanciado (mejor rendimiento)
         self.pitch = Pitch(
@@ -189,10 +189,10 @@ class HeatmapDrawer(Diagram):
 
         # Lista de jugadores con track_id
         player_ids: Set[int] = {
-            track.track_id
+            t.track_id
             for frame in self.tracks.values()
-            for track in frame.values()
-            if track.track_id is not None
+            for t in frame.values()
+            if t.track_id is not None
         }
 
         print(f"Encontrados {len(player_ids)} jugadores únicos.\n")
@@ -208,7 +208,7 @@ class HeatmapDrawer(Diagram):
                     continue
 
                 filtered = {pid: frame[pid]}
-                home_df, rival_df = self.drawer_service.process_frame(filtered)
+                home_df, rival_df = self.drawer.process_frame(filtered)
 
                 if not home_df.empty:
                     home_frames.append(home_df)
