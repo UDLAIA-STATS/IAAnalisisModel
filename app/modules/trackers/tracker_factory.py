@@ -51,7 +51,7 @@ class TrackerFactory:
             )
 
         # Instancia del tracker con el modelo compartido
-        self._registry[key] = tracker_cls(self.model)
+        self._registry[key] = tracker_cls()
 
     # ---------------------------------------------------------
     # Acceso a los trackers

@@ -8,9 +8,10 @@ from cv2.typing import MatLike
 import torch
 from ultralytics import YOLO
 
+from app.entities.models.BallState import BallEventModel
+from app.entities.models.PlayerState import PlayerStateModel
 from app.entities.utils.singleton import AbstractSingleton
 from app.modules.services import get_center_of_bbox
-from app.entities.tracks.track_detail import TrackDetailBase
 from app.entities.interfaces.record_collection_base import RecordCollectionBase
 from app.modules.trackers.tracker_factory import TrackerFactory
 
@@ -47,16 +48,16 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
     # Métodos que puedes sobreescribir en la subclase
     # ---------------------------
 
-    @abstractmethod
-    def get_object_track(
-        self,
-        frames: MatLike,
-        tracks_collection: RecordCollectionBase,
-    ):
-        """
-        Método legacy (no forzado a frame). Lo dejo abstracto para compatibilidad.
-        """
-        raise NotImplementedError
+    # @abstractmethod
+    # def get_object_tracks(
+    #     self,
+    #     frames: MatLike,
+    #     tracks_collection: RecordCollectionBase,
+    # ):
+    #     """
+    #     Método legacy (no forzado a frame). Lo dejo abstracto para compatibilidad.
+    #     """
+    #     raise NotImplementedError
 
     # ---------------------------
     # Utilitarios streaming
@@ -158,8 +159,8 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
     def get_trackers(self) -> List:
         return list(self.tracker_factory.get_trackers().values())
 
-    def add_position_to_track(self, track_detail: TrackDetailBase) -> TrackDetailBase:
-        bbox = track_detail.bbox
+    def add_position_to_track(self, track_detail: PlayerStateModel | BallEventModel) -> PlayerStateModel | BallEventModel:
+        bbox = track_detail.get_bbox()
         position = get_center_of_bbox(bbox)
         track_detail.position = position
         return track_detail

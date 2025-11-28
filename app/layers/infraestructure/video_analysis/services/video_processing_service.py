@@ -18,7 +18,6 @@ def read_video(video_path: str) -> list[MatLike]:
         if not ret or frame is None:
             break
         frames.append(frame)
-    cap.release()
     return frames
 
 

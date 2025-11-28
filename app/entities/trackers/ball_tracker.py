@@ -1,6 +1,4 @@
 import logging
-import json
-from typing import Dict, Hashable, Optional
 
 import numpy as np
 import supervision as sv

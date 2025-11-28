@@ -1,8 +1,8 @@
 from typing import Dict, Type
 
-from app.layers.domain.tracks.track_detail import TrackDetailBase
-from app.layers.infraestructure.video_analysis.plotting.interfaces.diagram import \
+from app.modules.plotting.interfaces.diagram import \
     Diagram
+from sqlalchemy.orm import Session
 
 
 class DrawerFactoryError(Exception):
@@ -13,12 +13,10 @@ class DrawerFactory:
     @classmethod
     def run_drawer(cls,
                    drawer_type: Type[Diagram],
-                   tracks: Dict[int,
-                                Dict[int,
-                                     TrackDetailBase]]) -> None:
+                   db: Session) -> None:
         """Runs a specific drawer based on the drawer type."""
 
         if drawer_type is None or not issubclass(drawer_type, Diagram):
             raise DrawerFactoryError(f"Invalid drawer type: {drawer_type}")
-        drawer_instance = drawer_type(tracks=tracks)
+        drawer_instance = drawer_type(db)
         drawer_instance.draw_and_save()

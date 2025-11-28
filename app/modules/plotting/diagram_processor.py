@@ -1,20 +1,15 @@
 from typing import Dict
 
-from app.layers.domain.tracks.track_detail import TrackDetailBase
-from app.layers.infraestructure.video_analysis.plotting.drawers import (
+from app.modules.plotting.drawers import (
     BallDetectionMetricsDrawer, BallTrajectoryDrawer, HeatmapDrawer,
     InterpolationErrorDrawer, VelocityConsistencyDrawer, VoronoiDiagramDrawer)
-from app.layers.infraestructure.video_analysis.plotting.services import \
+from app.modules.plotting.services import \
     DrawerFactory
+from sqlalchemy.orm import Session
 
-
-def generate_diagrams(
-        tracks: Dict[str, Dict[int, Dict[int, TrackDetailBase]]],
-        metrics: Dict) -> None:
+def generate_diagrams(db: Session) -> None:
     try:
-        DrawerFactory.run_drawer(VoronoiDiagramDrawer, tracks['players'])
-        DrawerFactory.run_drawer(HeatmapDrawer, tracks['players'])
-        DrawerFactory.run_drawer(BallTrajectoryDrawer, tracks['players'])
+        DrawerFactory.run_drawer(HeatmapDrawer, db)
         # DrawerFactory.run_drawer('processing_time', metrics)
         # DrawerFactory.run_drawer('memory_usage', metrics)
         #DrawerFactory.run_drawer(BallDetectionMetricsDrawer, tracks={}, metrics=metrics)

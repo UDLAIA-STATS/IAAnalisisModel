@@ -1,6 +1,5 @@
 
-from typing import Dict, List
-from app.entities.tracks.track_detail import TrackDetailBase
+from typing import List
 from app.modules.services.bbox_processor_service import (
     get_center_of_bbox, measure_scalar_distance)
 from app.entities.models.PlayerState import PlayerStateModel
