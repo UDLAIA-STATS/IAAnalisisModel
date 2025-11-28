@@ -121,19 +121,17 @@ class TeamAssigner(metaclass=Singleton):
     # ---------------------------
     # Bootstrap (one-shot) de colores de equipo
     # ---------------------------
-    def bootstrap_colors(self, frame: MatLike, records: Dict[int, PlayerStateModel]) -> bool:
+    def bootstrap_colors(self, frame: MatLike, players: List[PlayerStateModel]) -> bool:
         """
         Entrena MiniBatchKMeans una sola vez cuando haya suficientes colores válidos.
-        - returns True si se entrenó correctamente.
+        players: lista de PlayerStateModel con bbox disponible
         """
         if self.kmeans is not None:
             return True  # ya entrenado
 
         samples = []
-        for _, rec in records.items():
-            if not hasattr(rec, "get_bbox"):
-                continue
-            bbox = rec.get_bbox()
+        for player in players:
+            bbox = player.get_bbox()
             if not bbox:
                 continue
             c = self.extract_player_color(frame, bbox)
@@ -149,7 +147,6 @@ class TeamAssigner(metaclass=Singleton):
             mbk.fit(np.vstack(samples))
             self.kmeans = mbk
             centers = mbk.cluster_centers_
-            # almacenamos en BGR (coherente con extract_player_color)
             self.team_colors = {1: centers[0].astype(np.float32), 2: centers[1].astype(np.float32)}
             logging.info("TeamAssigner: bootstrap complete, 2 team colors learned.")
             return True
@@ -173,17 +170,13 @@ class TeamAssigner(metaclass=Singleton):
     # ---------------------------
     # API principal (manteniendo nombre de la clase)
     # ---------------------------
-    def assign_team_colors(self, frame: MatLike, records: Dict[int, PlayerStateModel]) -> None:
+    def assign_team_colors(self, frame: MatLike, players: List[PlayerStateModel]) -> None:
         """
-        Método ligero: intenta bootstrap si no hay modelo; no reentrena si ya existe.
-        Se espera que records sea un dict player_id->ORM.
+        Método principal: intenta bootstrap si no hay modelo; no reentrena si ya existe.
         """
-        # intentar bootstrap si es necesario
         if self.kmeans is None:
-            self.bootstrap_colors(frame, records)
-
-        # no reentrenamos en cada frame
-        # opcional: si quieres reentrenar periódicamente, implementa un contador externo
+            self.bootstrap_colors(frame, players)
+        # Aquí podrías actualizar cache, smoothing o predicciones por frame
 
     def get_player_team(self, frame: MatLike, record: PlayerStateModel) -> int:
         """

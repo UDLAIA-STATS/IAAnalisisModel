@@ -1,7 +1,6 @@
 from app.entities.interfaces.record_collection_base import RecordCollectionBase
 from app.entities.models import PlayerStateModel, HeatmapPointModel, BallEventModel
 
-
 class TrackCollectionPlayer(RecordCollectionBase):
     orm_model = PlayerStateModel
 

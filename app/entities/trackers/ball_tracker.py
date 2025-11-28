@@ -8,12 +8,6 @@ from app.entities.interfaces.record_collection_base import RecordCollectionBase
 
 
 class BallTracker(Tracker):
-    """
-    Guarda eventos del balón en la colección (BallEventModel).
-    - No usa TrackDetailBase.
-    - Usa FIXED_BALL_ID sólo internamente si hace falta; el modelo BallEventModel
-      está indexado por frame_index.
-    """
 
     def __init__(self):
         super().__init__()

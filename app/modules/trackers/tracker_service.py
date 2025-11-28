@@ -23,6 +23,7 @@ class TrackerService(TrackerServiceBase):
     def get_object_tracks(
         self,
         frames: Union[List[MatLike], MatLike],
+        frame_num: int,
         tracks_collection: RecordCollectionBase,
     ):
         """
@@ -32,7 +33,7 @@ class TrackerService(TrackerServiceBase):
             for i, frame in enumerate(frames):
                 self.process_frame(frame, i, tracks_collection)
         else:
-            self.process_frame(frames, 0, tracks_collection)
+            self.process_frame(frames, frame_num, tracks_collection)
 
     # process_frame está definido en la clase base y puede ser sobrescrito si quieres
     # Aquí solo sobreescribimos para añadir logging / hooks si se desea

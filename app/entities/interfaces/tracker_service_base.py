@@ -132,6 +132,7 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
     def get_object_tracks(
         self,
         frames: Union[List[MatLike], MatLike],
+        frame_num: int,
         tracks_collection: RecordCollectionBase,
     ):
         """

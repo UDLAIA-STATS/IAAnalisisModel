@@ -33,6 +33,6 @@ class PlayerBallAssigner():
 
             if distance < self.max_player_ball_distance and distance < min_distance:
                 min_distance = distance
-                closest_player_id = player.id
+                closest_player_id = player.to_dict()['id']
 
         return closest_player_id

@@ -1,33 +1,39 @@
 # record_collection_base.py
-from abc import ABC, abstractmethod
 from sqlalchemy.orm import Session
 from typing import Type, List, Optional
-from app.entities.utils import AbstractSingleton
+
+from app.entities.utils.singleton import Singleton
 
 
-class RecordCollectionBase(metaclass=AbstractSingleton):
+class RecordCollectionBase(metaclass=Singleton):
+    """
+    Clase base para manejar colecciones de registros en la DB.
+    Puede ser heredada para diferentes modelos ORM.
+    """
     orm_model: Type
 
     def __init__(self, db: Session):
         self.db = db
+        if self.orm_model is None:
+            raise ValueError("Debes definir 'orm_model' en la clase hija.")
 
-    @abstractmethod
     def generate_id(self, obj) -> int:
         """
         Genera el ID único usado en la base (depende del tipo de entidad).
+        Se puede sobrescribir en la clase hija.
         """
-        pass
+        return obj.track_id
+    
+    def get_last(self, db):
+        return db.query(self.orm_model).order_by(self.orm_model.id.desc()).first()
 
     def get_record_for_frame(self, track_id: int, frame_index: int):
         """
-        Busca si existe un registro coincidente con track_id + frame_index.
-        Las colecciones pueden sobrescribir este método si usan otros campos.
+        Busca un registro por track_id y frame_index.
+        Puede ser sobrescrito si la colección usa otros campos.
         """
-
-        # Not all ORM models have both fields, but most do (players/ball).
         query = self.db.query(self.orm_model)
 
-        # Solo agregar filtros si existen esos campos en el modelo.
         if hasattr(self.orm_model, "track_id"):
             query = query.filter(self.orm_model.track_id == track_id)
 
@@ -40,11 +46,7 @@ class RecordCollectionBase(metaclass=AbstractSingleton):
         return self.db.query(self.orm_model).filter(self.orm_model.id == obj_id).first()
 
     def get(self, obj_id: int):
-        return (
-            self.db.query(self.orm_model)
-            .filter(self.orm_model.id == obj_id)
-            .first()
-        )
+        return self.get_by_id(obj_id)
 
     def get_all(self) -> List:
         return self.db.query(self.orm_model).all()
