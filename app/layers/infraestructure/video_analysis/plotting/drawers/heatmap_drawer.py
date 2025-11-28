@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Dict, Set
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import gaussian_kde
@@ -207,7 +208,7 @@ class HeatmapDrawer(Diagram):
                     continue
 
                 filtered = {pid: frame[pid]}
-                home_df, rival_df = self.drawer_service.process_frame(filtered)
+                home_df, rival_df = self.drawer.process_frame(filtered)
 
                 if not home_df.empty:
                     home_frames.append(home_df)

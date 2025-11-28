@@ -40,7 +40,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
     # -----------------------------
     # LECTURA DEL VIDEO
     # -----------------------------
-    video_stream = read_video("./app/res/input_videos/08fd33_4.mp4")
+    video_stream = read_video("../res/input_videos/1_720p.mkv")
     images_per_player = 3
     if not video_stream:
         print("Error: No frames read from video")
@@ -205,7 +205,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             frame_index=frame_num,
             player=last_player,
             images_per_player=images_per_player,
-            output_folder="players_out/",
+            output_folder="../res/output_images/",
             player_image_counts=player_image_counts,
             last_frame_taken=last_frame_taken,
             )

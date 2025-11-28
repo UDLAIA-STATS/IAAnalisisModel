@@ -21,7 +21,7 @@ class HeatmapDrawer(Diagram):
         # Llamada correcta al constructor de la clase base (sin args).
         super().__init__(db)
 
-        base = Path("./app/res/output_videos/")
+        base = Path("../../../res/output_videos/")
         self.save_path = base
         self.rival_players_path = base / "rival_players"
         self.home_players_path = base / "home_players"
