@@ -1,13 +1,8 @@
 import time
 import tracemalloc
 
-import numpy as np
-from torch import R
-from app.entities.interfaces import RecordCollectionBase
-from app.entities.collections import TrackCollectionBall, TrackCollectionPlayer, TrackCollectionHeatmapPoint 
-from app.entities.models import HeatmapPointModel, BallEventModel, PlayerStateModel
-from app.layers.infraestructure.validation import (calculate_interpolation_error,
-                                                   check_speed_consistency)
+from app.entities.collections import TrackCollectionBall, TrackCollectionPlayer 
+from app.entities.models import BallEventModel, PlayerStateModel
 from app.modules.camera_movement_estimator import \
     CameraMovementEstimator
 from app.modules.player_ball_assigner import \
@@ -18,16 +13,15 @@ from app.modules.services.video_processing_service import extract_player_images
 from app.modules.speed_and_distance_estimator import SpeedAndDistanceEstimator
 from app.modules.team_assigner import TeamAssigner
 from app.entities.trackers import ( 
-    BallTracker, PlayerTracker)
+    BallTracker)
 from app.modules.trackers import TrackerService
 from app.modules.view_transformer import ViewTransformer
 from sqlalchemy.orm import Session
-from cv2.typing import MatLike
 
 from app.tasks.upload_heatmaps import upload_heatmaps_for_extracted_players
 
 
-async def run(db: Session, video_name: str, match_id: int) -> None:
+async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
     # -----------------------------
     # MÉTRICAS Y CONFIGURACIÓN

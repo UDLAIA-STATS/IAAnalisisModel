@@ -4,10 +4,8 @@ from typing import List, Union
 
 import supervision as sv
 from cv2.typing import MatLike
-
-from app.entities.interfaces import TrackerServiceBase
 from app.entities.interfaces.record_collection_base import RecordCollectionBase
-
+from app.entities.interfaces.tracker_service_base import TrackerServiceBase
 
 class TrackerService(TrackerServiceBase):
     """
@@ -24,6 +22,7 @@ class TrackerService(TrackerServiceBase):
         self,
         frames: Union[List[MatLike], MatLike],
         frame_num: int,
+        
         tracks_collection: RecordCollectionBase,
     ):
         """

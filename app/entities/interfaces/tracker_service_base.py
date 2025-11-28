@@ -1,19 +1,20 @@
 # tracker_service_base.py
 import logging
-from abc import abstractmethod
-from typing import List, Optional, Union
+from typing import List, Union, TYPE_CHECKING
 
 import supervision as sv
 from cv2.typing import MatLike
 import torch
-from ultralytics import YOLO
+from ultralytics.models import YOLO
 
 from app.entities.models.BallState import BallEventModel
 from app.entities.models.PlayerState import PlayerStateModel
 from app.entities.utils.singleton import AbstractSingleton
 from app.modules.services import get_center_of_bbox
 from app.entities.interfaces.record_collection_base import RecordCollectionBase
-from app.modules.trackers.tracker_factory import TrackerFactory
+
+if TYPE_CHECKING:
+    from app.modules.trackers.tracker_factory import TrackerFactory
 
 
 class TrackerServiceBase(metaclass=AbstractSingleton):
@@ -25,6 +26,7 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
     """
 
     def __init__(self, model_path: str, use_half_precision: bool = False):
+        from app.modules.trackers.tracker_factory import TrackerFactory
         self.model = self.__load_detector(model_path, use_half_precision)
         self.tracker = sv.ByteTrack()
         self.tracker_factory = TrackerFactory(self.model)

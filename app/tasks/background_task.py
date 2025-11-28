@@ -4,7 +4,6 @@ from sqlalchemy import create_engine
 
 from app.entities.collections.track_collections import TrackCollectionPlayer
 from app.modules.services.database import Base
-from app.tasks.runner import run
 from sqlalchemy.orm import sessionmaker, Session
 
 from app.tasks.upload import upload_player_records
@@ -35,7 +34,8 @@ async def process_video_async(video_name: str, match_id: int):
 async def process_run(db: Session, video_name: str, match_id: int, db_session_factory):
     
     try:
-        await run(db=db, video_name=video_name, match_id=match_id)
+        from app.tasks.runner import run_analysis
+        await run_analysis(db=db, video_name=video_name, match_id=match_id)
         await export_data(db, match_id)
 
     except Exception as e:

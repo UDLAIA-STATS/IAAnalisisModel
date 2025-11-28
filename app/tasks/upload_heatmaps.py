@@ -1,6 +1,3 @@
-import aioboto3
-from datetime import datetime, timezone
-from decouple import config
 import asyncio
 import pathlib
 from app.entities.models import PlayerStateModel

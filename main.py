@@ -1,8 +1,19 @@
-from app.tasks import run_app
+from app.tasks import analyze_router
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🚀 API iniciada")
+    yield
+    print("🛑 API detenida")
+
+def run_app() -> FastAPI:
+    app = FastAPI(lifespan=lifespan)
+    app.include_router(analyze_router)
+    return app
 
 app = run_app()
-
-
 
 # import time
 # import tracemalloc

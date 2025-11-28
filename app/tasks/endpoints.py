@@ -1,15 +1,12 @@
 # app/api/analyze_router.py
 
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
-import json
-import pathlib
-from app.tasks import run, upload_player_records
 from app.modules.services import get_db
 from app.entities.collections import TrackCollectionPlayer
 from app.entities.models import AnalyzeRequest
 from app.tasks.background_task import process_video_async
+
 analyze_router = APIRouter(
     prefix="/analyze",
     tags=["analyze"]
