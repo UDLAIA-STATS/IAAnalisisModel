@@ -1,41 +1,39 @@
 import pathlib
-from typing import List
+from typing import Generator, List
 
 import cv2
 from cv2.typing import MatLike
 
 
-def read_video(video_path: str) -> list[MatLike]:
+def read_video(video_path: str, target_width: int = 640, sample_rate=1) -> Generator[tuple[MatLike, float]]:
     cap = cv2.VideoCapture(video_path)
-    print("Is cap opened? ", cap.isOpened())
 
     if not cap.isOpened():
         raise FileNotFoundError(f"No se pudo abrir el video: {video_path}")
+    
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    frame_count = 0
+    dt = 1.0 / fps
 
     frames = []
     while True:
         ret, frame = cap.read()
-        if not ret or frame is None:
+        if not ret or not frame:
             break
-        frames.append(frame)
-    return frames
+        
+        frame_count += 1
+        if sample_rate > 1 and (frame_count % sample_rate) != 0:
+            continue
+        
+        h, w = frame.shape[:2]
+        if w != target_width:
+            scale = target_width / float(w)
+            new_h = int(h * scale)
+            frame = cv2.resize(frame, (target_width, new_h))
+        yield frame, dt 
 
+    cap.release()
 
-def save_video(ouput_video_frames, output_video_path: str):
-    folder = pathlib.Path(output_video_path).parent
-    if not folder.exists():
-        folder.mkdir(parents=True, exist_ok=True)
-
-    fourcc = cv2.VideoWriter.fourcc(*'XVID')
-    out = cv2.VideoWriter(
-        output_video_path,
-        fourcc,
-        24,
-        (ouput_video_frames[0].shape[1],
-         ouput_video_frames[0].shape[0]))
-    for frame in ouput_video_frames:
-        out.write(frame)
-    out.release()
     
 def extract_player_images(
     video_frames: List[MatLike],

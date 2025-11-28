@@ -56,9 +56,9 @@ class SpeedAndDistanceEstimator():
                     total_distance[entity_type][track_id] += distance_covered
 
                     print(
-                        f"Track ID: {track_id}, Speed: {
+                        f"""Track ID: {track_id}, Speed: {
                             speed_km_per_hour:.2f} km/h, Total Distance: {
-                            total_distance[entity_type][track_id]:.2f} m")
+                            total_distance[entity_type][track_id]:.2f} m""")
                     for frame_num_batch in range(frame_num, last_frame):
                         if track_id not in frames[frame_num_batch]:
                             continue
