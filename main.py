@@ -38,7 +38,7 @@ def main():
     }
 
     # Lectura y extracción de frames del video
-    video_frames = read_video('./app/res/input_videos/08fd33_4.mp4')
+    video_frames = read_video('./app/res/input_videos/1_720p.mkv')
     if not video_frames:
         print("Error: No frames read from video")
         return

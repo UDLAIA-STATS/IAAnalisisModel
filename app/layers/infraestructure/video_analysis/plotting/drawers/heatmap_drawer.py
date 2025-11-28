@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Dict, Set
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 
 from app.layers.domain.tracks.track_detail import TrackDetailBase
@@ -11,6 +11,7 @@ from app.layers.infraestructure.video_analysis.plotting.services import DrawerSe
 
 
 class HeatmapDrawer(Diagram):
+
     def __init__(self, tracks: Dict[int, Dict[int, TrackDetailBase]]):
         super().__init__(tracks)
 
@@ -19,147 +20,102 @@ class HeatmapDrawer(Diagram):
         self.rival_players_path = base / "rival_players"
         self.home_players_path = base / "home_players"
 
-        for p in [base, self.rival_players_path, self.home_players_path]:
+        for p in (self.save_path, self.rival_players_path, self.home_players_path):
             p.mkdir(parents=True, exist_ok=True)
 
-        self.drawer_service = DrawerService()
+        self.drawer = DrawerService()
 
-    # ---------------------------------------------------------
-    # HELPERS
-    # ---------------------------------------------------------
-    def _safe_concat(self, dfs: list) -> pd.DataFrame:
-        """Concatena listas de DataFrames con limpieza total."""
-        if not dfs:
+    @staticmethod
+    def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
+        """Limpieza segura y rápida para cualquier DF de posiciones."""
+        if df.empty:
             return pd.DataFrame(columns=["x", "y"])
 
-        df = pd.concat(dfs, ignore_index=True)
+        df = df.copy()
 
-        df["x"] = pd.to_numeric(df["x"], errors="coerce")
-        df["y"] = pd.to_numeric(df["y"], errors="coerce")
+        for col in ("x", "y"):
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df.dropna(subset=["x", "y"], inplace=True)
 
         return df
 
-    def _is_valid_for_kde(self, df: pd.DataFrame) -> bool:
-        """Verifica si los datos son usables por KDE para evitar errores."""
-        if df.empty or df.shape[0] < 5:
+    @staticmethod
+    def _valid_kde(df: pd.DataFrame) -> bool:
+        """Validación estricta pero segura para KDE."""
+        if df.empty or len(df) < 5:
             return False
 
-        # Debe existir variación
-        if df['x'].min() == df['x'].max():
-            return False
-        if df['y'].min() == df['y'].max():
-            return False
+        return not (df["x"].min() == df["x"].max() or df["y"].min() == df["y"].max())
 
-        return True
-
-    def _draw_pitch(self):
+    @staticmethod
+    def _draw_pitch():
         pitch = Pitch(
             pitch_type="statsbomb",
             pitch_color="#1e4251",
             line_color="white",
-            axis=True,
-            label=True,
-            tick=True,
+            axis=False,
+            label=False,
+            tick=False,
         )
         fig, ax = plt.subplots(figsize=(13, 8.5))
-        fig.set_facecolor("white")
-        ax.set_facecolor("white")
         pitch.draw(ax=ax)
         return fig, ax, pitch
 
-    # ---------------------------------------------------------
-    # MAIN
-    # ---------------------------------------------------------
+    def _plot_kde(self, pitch, ax, df: pd.DataFrame, cmap: str):
+        """Plot KDE con validación automática."""
+        if not self._valid_kde(df):
+            return False
+
+        levels = min(60, max(10, len(df) // 2))
+
+        pitch.kdeplot(
+            df["x"],
+            df["y"],
+            ax=ax,
+            cmap=cmap,
+            fill=True,
+            alpha=0.60,
+            levels=levels,
+            bw_adjust=0.30,
+        )
+        return True
+
+    def _save(self, fig, path: Path):
+        """Guardar figura con protección."""
+        try:
+            fig.savefig(path, dpi=300, bbox_inches="tight")
+        except Exception as e:
+            print(f"[ERROR] No se pudo guardar {path}: {e}")
+
     def draw_and_save(self) -> None:
-        self._draw_heatmap()
-        self._draw_individual_heatmaps()
+        self._draw_individual()
 
-    # ---------------------------------------------------------
-    # GLOBAL HEATMAP
-    # ---------------------------------------------------------
-    def _draw_heatmap(self) -> None:
-        home_frames = []
-        rival_frames = []
-
-        for _, frame_content in self.tracks.items():
-            home, rival = self.drawer_service.process_frame(frame_content)
-            if not home.empty:
-                home_frames.append(home)
-            if not rival.empty:
-                rival_frames.append(rival)
-
-        home_df = self._safe_concat(home_frames)
-        rival_df = self._safe_concat(rival_frames)
-
-        if home_df.empty and rival_df.empty:
-            return
-
-        fig, ax, pitch = self._draw_pitch()
-
-        # HOME TEAM
-        if self._is_valid_for_kde(home_df):
-            levels = min(60, max(10, home_df.shape[0] // 2))
-            pitch.kdeplot(
-                home_df["x"], home_df["y"],
-                ax=ax,
-                cmap="Blues",
-                fill=True,
-                alpha=0.6,
-                levels=levels,
-                bw_adjust=0.3
-            )
-            fig.savefig(self.save_path / "heatmap_home.png", dpi=300, bbox_inches="tight")
-
-        # RIVAL TEAM
-        if self._is_valid_for_kde(rival_df):
-            levels = min(60, max(10, rival_df.shape[0] // 2))
-            pitch.kdeplot(
-                rival_df["x"], rival_df["y"],
-                ax=ax,
-                cmap="Reds",
-                fill=True,
-                alpha=0.6,
-                levels=levels,
-                bw_adjust=0.3
-            )
-            fig.savefig(self.save_path / "heatmap_rival.png", dpi=300, bbox_inches="tight")
-
-        fig.savefig(self.save_path / "heatmap_both_teams.png", dpi=300, bbox_inches="tight")
-        plt.close(fig)
-
-    # ---------------------------------------------------------
-    # INDIVIDUAL HEATMAPS
-    # ---------------------------------------------------------
-    def _draw_individual_heatmaps(self) -> None:
-        # Obtener IDs únicos
+    def _draw_individual(self):
         player_ids: Set[int] = {
-            track.track_id
+            t.track_id
             for frame in self.tracks.values()
-            for track in frame.values()
-            if track.track_id is not None
+            for t in frame.values()
+            if t.track_id is not None
         }
 
         for pid in player_ids:
-            home_frames = []
-            rival_frames = []
+            home_frames, rival_frames = [], []
 
-            for frame_content in self.tracks.values():
-                if pid not in frame_content:
+            for frame in self.tracks.values():
+                if pid not in frame:
                     continue
 
-                filtered = {pid: frame_content[pid]}
-                home, rival = self.drawer_service.process_frame(filtered)
-
+                filtered = {pid: frame[pid]}
+                home, rival = self.drawer.process_frame(filtered)
                 if not home.empty:
                     home_frames.append(home)
                 if not rival.empty:
                     rival_frames.append(rival)
 
-            home_df = self._safe_concat(home_frames)
-            rival_df = self._safe_concat(rival_frames)
+            home_df = self._clean_df(pd.concat(home_frames, ignore_index=True) if home_frames else pd.DataFrame())
+            rival_df = self._clean_df(pd.concat(rival_frames, ignore_index=True) if rival_frames else pd.DataFrame())
 
             if home_df.empty and rival_df.empty:
                 continue
@@ -167,33 +123,11 @@ class HeatmapDrawer(Diagram):
             fig, ax, pitch = self._draw_pitch()
 
             # HOME PLAYER
-            if self._is_valid_for_kde(home_df):
-                levels = min(60, max(10, home_df.shape[0] // 2))
-                pitch.kdeplot(
-                    home_df["x"], home_df["y"],
-                    ax=ax,
-                    cmap="viridis",
-                    fill=True,
-                    alpha=0.6,
-                    levels=levels,
-                    bw_adjust=0.3
-                )
-                fig.savefig(self.home_players_path / f"heatmap_player_home_{pid}.png",
-                            dpi=300, bbox_inches="tight")
+            if self._plot_kde(pitch, ax, home_df, cmap="viridis"):
+                self._save(fig, self.home_players_path / f"heatmap_player_home_{pid}.png")
 
             # RIVAL PLAYER
-            if self._is_valid_for_kde(rival_df):
-                levels = min(60, max(10, rival_df.shape[0] // 2))
-                pitch.kdeplot(
-                    rival_df["x"], rival_df["y"],
-                    ax=ax,
-                    cmap="viridis",
-                    fill=True,
-                    alpha=0.6,
-                    levels=levels,
-                    bw_adjust=0.3
-                )
-                fig.savefig(self.rival_players_path / f"heatmap_player_rival_{pid}.png",
-                            dpi=300, bbox_inches="tight")
+            if self._plot_kde(pitch, ax, rival_df, cmap="viridis"):
+                self._save(fig, self.rival_players_path / f"heatmap_player_rival_{pid}.png")
 
             plt.close(fig)
