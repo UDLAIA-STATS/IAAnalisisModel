@@ -26,170 +26,206 @@ def generate_id(self, obj):
         return obj.track_id
 
 def run(db: Session):
-    # Initialize metrics and performance tracking
-    tracemalloc.start()  # Start memory tracking
+
+    # -----------------------------
+    # MÉTRICAS Y CONFIGURACIÓN
+    # -----------------------------
+    tracemalloc.start()
     start_time = time.time()
+
     metrics = {
-        'processing_time': [],
-        'memory_usage': [],
-        'ball_detection': {'detected': 0, 'interpolated': 0},
-        'interpolation_error': 0.0,
-        'velocity_inconsistencies': {'players': 0, 'referees': 0}
+        "processing_time": [],
+        "memory_usage": [],
+        "ball_detection": {"detected": 0, "interpolated": 0},
+        "interpolation_error": 0.0,
+        "velocity_inconsistencies": {"players": 0, "referees": 0},
     }
 
-    # Lectura y extracción de frames del video
-    video_stream = read_video('./app/res/input_videos/08fd33_4.mp4')
+    # -----------------------------
+    # LECTURA DEL VIDEO
+    # -----------------------------
+    video_stream = read_video("./app/res/input_videos/08fd33_4.mp4")
     if not video_stream:
         print("Error: No frames read from video")
         return
 
-    # Inicializa los trackers para el reconocimiento de objetos
-    tracker = TrackerService("./app/res/models/best.torchscript", use_half_precision=True)
-    
+    tracker = TrackerService(
+        "./app/res/models/best.torchscript",
+        use_half_precision=True
+    )
 
-    # Entidades necesarios para el almacenamiento y procesamiento de tracks
+    # -----------------------------
+    # COLECCIONES
+    # -----------------------------
     player_records = TrackCollectionPlayer(db)
     player_records.orm_model = PlayerStateModel
+
     ball_records = TrackCollectionBall(db)
     ball_records.orm_model = BallEventModel
-    
-    heatmap_point_records = TrackCollectionHeatmapPoint(db)
+
+    heatmap_records = TrackCollectionHeatmapPoint(db)
+
     view_transformer = ViewTransformer()
-    speed_and_distance_estimator = SpeedAndDistanceEstimator()
+    speed_and_distance = SpeedAndDistanceEstimator()
     team_assigner = TeamAssigner()
     player_assigner = PlayerBallAssigner()
-    first_frame = None
-    try: 
+
+    # -----------------------------
+    # FRAME INICIAL PARA CAMERA MOVEMENT
+    # -----------------------------
+    try:
         first_frame, dt = next(video_stream)
     except StopIteration:
-        print("Error: Video stream is empty")
+        print("Error: Video is empty")
         return
-    
+
     camera_movement_estimator = CameraMovementEstimator(first_frame)
 
+    # ==========================================================================
+    #                               LOOP PRINCIPAL
+    # ==========================================================================
     for frame_num, (frame, dt) in enumerate(video_stream):
-        camera_movement = camera_movement_estimator.update(frame)
-        records = [ player_records, ball_records]
-        for collection in records:
-            tracker.get_object_tracks(frame, frame_num, collection)
-            # Calcular posiciones centrales inmediatamente
-            last_track = collection.get_last(db)
 
+        # -------------------------------------------------------
+        # 1. Estimar movimiento de cámara
+        # -------------------------------------------------------
+        camera_movement = camera_movement_estimator.update(frame)
+
+        # -------------------------------------------------------
+        # 2. TRACKING DE OBJETOS (jugadores + balón)
+        # -------------------------------------------------------
+        for collection in (player_records, ball_records):
+            tracker.get_object_tracks(frame, frame_num, collection)
+
+            last_track = collection.get_last(db)
             if last_track is None:
                 continue
 
+            # Calcular centro y bbox inmediatamente
             tracker.add_position_to_track(last_track)
+
+            # Aplicar compensación de movimiento de cámara
             camera_movement_estimator.add_adjust_positions_to_tracks(
                 collection=collection,
                 camera_movement_per_frame=camera_movement,
                 track=last_track
             )
+
+            # Homografía al campo 2D
             view_transformer.add_transformed_positions(collection)
 
-    
-        ball_tracker = tracker.get_tracker('ball')
-
+        # -------------------------------------------------------
+        # 3. VALIDAR QUE EL TRACKER DE BALÓN ES CORRECTO
+        # -------------------------------------------------------
+        ball_tracker = tracker.get_tracker("ball")
         if not isinstance(ball_tracker, BallTracker):
             raise TypeError("Retrieved tracker is not an instance of BallTracker")
 
-        detected_frames = sum(
-            any(track.bbox for track in tracks.values())
-            for tracks in ball_records.get_all()
-        )
+        # -------------------------------------------------------
+        # 4. MÉTRICAS DE DETECCIÓN DEL BALÓN
+        # -------------------------------------------------------
+        ball_frames = ball_records.get_all()
+        detected = sum(1 for _, t in ball_frames if any(obj.bbox for obj in t.values()))
+        total = len(ball_frames)
 
-        total_frames = len(ball_records.get_all())
-
-
-        # Count ball detections (efficiently)
         metrics["ball_detection"] = {
-            "detected": detected_frames,
-            "interpolated": len(ball_records.get_all()) - detected_frames
+            "detected": detected,
+            "interpolated": total - detected,
         }
 
-        # Speed and distance estimation
-        player_frame = player_records.get_last(db) 
-        
-        if player_frame is None or not isinstance(player_frame, PlayerStateModel):
-            return
-        speed_and_distance_estimator.process_track(
-            frame_num=frame_num,
-            track_id=player_frame.to_dict()['id'],
-            track=player_frame,
-            db=db,
-            model_class=PlayerStateModel,
-        )
+        # -------------------------------------------------------
+        # 5. ESTIMAR VELOCIDAD/DISTANCIA DEL ÚLTIMO JUGADOR
+        # -------------------------------------------------------
+        last_player = player_records.get_last(db)
+        if last_player:
+            speed_and_distance.process_track(
+                frame_num=frame_num,
+                track_id=last_player.track_id,
+                track=last_player,
+                db=db,
+                model_class=PlayerStateModel,
+            )
 
-        print("Assigning ball to players...")
-
+        # -------------------------------------------------------
+        # 6. ASIGNACIÓN DEL BALÓN A UN JUGADOR
+        # -------------------------------------------------------
         players = player_records.get_all()
-        balls = ball_records.get_all()
         team_ball_control = []
-        
-        for frame_num, ball_track in balls:
-            # -----------------------
-            # 1. Obtener bbox del balón
-            # -----------------------
+
+        for (frame_i, ball_track) in ball_frames:
+
+            # FRAME SIN BALÓN
             if not ball_track:
-                team_ball_control.append(team_ball_control[-1] if team_ball_control else -1)
+                last = team_ball_control[-1] if team_ball_control else -1
+                team_ball_control.append(last)
                 continue
 
             # Solo un balón por frame
             ball_detail = next(iter(ball_track.values()))
             ball_bbox = ball_detail.bbox
+
             if ball_bbox is None:
-                team_ball_control.append(team_ball_control[-1] if team_ball_control else -1)
+                last = team_ball_control[-1] if team_ball_control else -1
+                team_ball_control.append(last)
                 continue
 
-            # -----------------------
-            # 2. Asignar balón a jugador
-            # -----------------------
-            assigned_player_id = player_assigner.assign_ball_to_player(ball_bbox, players)
-            print("Assigned player: ", assigned_player_id)
+            # -----------------------------
+            # ASIGNACIÓN A JUGADOR
+            # -----------------------------
+            assigned_player_id = player_assigner.assign_ball_to_player(
+                ball_bbox,
+                players
+            )
 
             if assigned_player_id == -1:
-                # Nadie cerca: repetir último equipo
-                team_ball_control.append(team_ball_control[-1] if team_ball_control else -1)
+                last = team_ball_control[-1] if team_ball_control else -1
+                team_ball_control.append(last)
                 continue
 
-            # -----------------------
-            # 3. Obtener player real del frame
-            # -----------------------
-            player = player_records.get_record_for_frame(assigned_player_id, frame_num)
-            print("Actual player track: ", player)
+            # Ubicar el jugador asignado en ese frame real
+            player = player_records.get_record_for_frame(
+                assigned_player_id,
+                frame_i
+            )
 
             if not player:
-                team_ball_control.append(team_ball_control[-1] if team_ball_control else -1)
+                last = team_ball_control[-1] if team_ball_control else -1
+                team_ball_control.append(last)
                 continue
 
             # Marcar posesión
-            player_records.patch(player.to_dict()['id'], {'has_ball': True})
+            player_records.patch(
+                player.to_dict()["id"],
+                {"has_ball": True}
+            )
 
-            # -----------------------
-            # 4. Determinar equipo del jugador
-            # -----------------------
+            # Obtener equipo
             team = team_assigner.get_player_team(frame, player)
             team_ball_control.append(team if team is not None else -1)
 
-
-        # Final metrics report
-        total_time = time.time() - start_time
+        # -------------------------------------------------------
+        # 7. MÉTRICAS FINALES
+        # -------------------------------------------------------
         snapshot = tracemalloc.take_snapshot()
-        top_stats = snapshot.statistics('lineno')
-        total_memory = sum(stat.size for stat in top_stats) / (1024 * 1024)  # MB
+        total_mem = sum(stat.size for stat in snapshot.statistics("lineno")) / (1024 * 1024)
 
-        # Ensure we have memory measurements
-        if not metrics['memory_usage']:
+        if not metrics["memory_usage"]:
+            metrics["memory_usage"].append(total_mem)
 
-            # Add final memory measurement if no others exist
-            metrics['memory_usage'].append(total_memory)
+    # ==========================================================================
+    #                           FIN DEL VIDEO
+    # ==========================================================================
+    total_time = time.time() - start_time
 
-        print("\n" + "=" * 50)
-        print("RESUMEN DE MÉTRICAS DE RENDIMIENTO")
-        print("=" * 50)
-        print(f"Tiempo total de procesamiento: {total_time/60:.2f} min")
-        print(f"Uso máximo de memoria: {max(metrics['memory_usage']):.2f} MB")
-        print(f"Inconsistencias de velocidad: Jugadores={metrics['velocity_inconsistencies']['players']}" )
-        print(f"Error de interpolación: {metrics['interpolation_error']:.4f}")
+    print("\n" + "=" * 50)
+    print("        RESUMEN FINAL DEL PROCESAMIENTO")
+    print("=" * 50)
+    print(f"Tiempo total: {total_time/60:.2f} min")
+    print(f"Memoria máxima usada: {max(metrics['memory_usage']):.2f} MB")
+    print(f"Frames balón detectado: {metrics['ball_detection']['detected']}")
+    print(f"Frames balón interpolado: {metrics['ball_detection']['interpolated']}")
+
+    return video_stream, metrics
 
 def generate_media(video_stream, records_collection: TrackCollectionPlayer, db: Session):
     extract_player_images(video_stream, records_collection, './app/res/output_images/')
