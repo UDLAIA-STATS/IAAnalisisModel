@@ -171,23 +171,6 @@ def run(db: Session):
             team_ball_control.append(team if team is not None else -1)
 
 
-        # Calculate metrics
-        metrics['interpolation_error'] = calculate_interpolation_error(
-            ball_tracker,  # Pass tracker instance
-            tracks_collection.tracks['ball']
-        )
-        metrics['velocity_inconsistencies'] = check_speed_consistency(tracks_collection)
-
-        # Draw output
-        print("Team ball control array: ", team_ball_control)
-        print("Total players frames: ", tracks_collection.tracks)
-       
-
-        # Almacena el video procesado y las imágenes de los jugadores
-        extract_player_images(video_stream, tracks_collection, './app/res/output_images/')
-
-        generate_diagrams(tracks=tracks_collection.tracks, metrics=metrics)
-
         # Final metrics report
         total_time = time.time() - start_time
         snapshot = tracemalloc.take_snapshot()
@@ -204,11 +187,10 @@ def run(db: Session):
         print("RESUMEN DE MÉTRICAS DE RENDIMIENTO")
         print("=" * 50)
         print(f"Tiempo total de procesamiento: {total_time/60:.2f} min")
-        print(f"Tiempo promedio por frame: {total_time / len(video_stream):.4f} s")
         print(f"Uso máximo de memoria: {max(metrics['memory_usage']):.2f} MB")
-        print(f"Detección de balón: {metrics['ball_detection']['detected']} frames "
-            f"({metrics['ball_detection']['detected'] /
-            len(tracks_collection.tracks['ball']) * 100:.1f}%)")
         print(f"Inconsistencias de velocidad: Jugadores={metrics['velocity_inconsistencies']['players']}" )
         print(f"Error de interpolación: {metrics['interpolation_error']:.4f}")
 
+def generate_media(video_stream, records_collection: TrackCollectionPlayer, db: Session):
+    extract_player_images(video_stream, records_collection, './app/res/output_images/')
+    generate_diagrams(db=db)
