@@ -114,16 +114,20 @@ class CameraMovementEstimator(metaclass=Singleton):
         """
         Ajusta la posición del jugador/ balón compensando movimiento de cámara.
         """
-        dx, dy = camera_movement_per_frame
-        x, y = track.x, track.y
-        position_adjusted = (x - dx, y - dy)
+        try:
+            dx, dy = camera_movement_per_frame
+            x, y = track.x, track.y
+            position_adjusted = (x - dx, y - dy)
 
-        updates = {
-            "x": position_adjusted[0],
-            "y": position_adjusted[1]
-        }
+            updates = {
+                "x": position_adjusted[0],
+                "y": position_adjusted[1]
+            }
 
-        collection.patch(track.to_dict()['id'], updates)
+            collection.patch(track.to_dict()['id'], updates)
+        except Exception as e:
+            print(f"Error ajustando posición del track {track}: {e}")
+            raise e
 
     # -------------------------------------------------------------
     # CALCULAR DISTANCIA ENTRE FEATURES

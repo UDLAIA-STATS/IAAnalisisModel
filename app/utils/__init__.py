@@ -1,0 +1,7 @@
+from .routes import (
+    BASE_RES_DIR,
+    OUTPUT_VIDEOS_DIR,
+    OUTPUT_IMAGES_DIR,
+    INPUT_VIDEOS_DIR,
+    MODELS_DIR
+    )

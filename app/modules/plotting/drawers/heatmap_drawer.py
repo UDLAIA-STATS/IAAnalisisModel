@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.plotting.interfaces import Diagram
 from app.entities.models import PlayerStateModel, HeatmapPointModel
+from app.utils.routes import OUTPUT_VIDEOS_DIR
 
 
 class HeatmapDrawer(Diagram):
@@ -21,7 +22,7 @@ class HeatmapDrawer(Diagram):
         # Llamada correcta al constructor de la clase base (sin args).
         super().__init__(db)
 
-        base = Path("../../../res/output_videos/")
+        base = OUTPUT_VIDEOS_DIR
         self.save_path = base
         self.rival_players_path = base / "rival_players"
         self.home_players_path = base / "home_players"

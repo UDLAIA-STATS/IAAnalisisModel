@@ -11,7 +11,7 @@ class Tracker(ABC):
     - Deben implementar get_object_tracks que recibe detecciones ya trackeadas.
     """
 
-    def __init__(self):
+    def __init__(self, model):
         pass
 
     @abstractmethod
@@ -30,6 +30,7 @@ class Tracker(ABC):
         - detection_supervision: detecciones originales en formato supervision (sin tracks)
         - tracks_collection: repo/collection para persistir resultados
         """
+        print("Tracker.get_object_tracks called.")
         raise NotImplementedError
 
     @abstractmethod

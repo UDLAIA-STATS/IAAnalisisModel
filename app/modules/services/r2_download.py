@@ -23,6 +23,7 @@ class R2Downloader(metaclass=Singleton):
         base.mkdir(parents=True, exist_ok=True) 
 
         filename = Path(key).name
+        print(f"Construyendo ruta de destino para {filename} en {base_dir}...")
         return base / filename
 
     def stream_download(self, key: str, destination_path: str, chunk_size=1024*1024*16):
@@ -30,12 +31,21 @@ class R2Downloader(metaclass=Singleton):
         Descarga el archivo en chunks (16 MB por defecto).
         Soporta archivos grandes (+5GB).
         """
-        with open(destination_path, "wb") as f:
-            obj = self.s3.get_object(Bucket=self.bucket, Key=key)
-            body = obj["Body"]
-            while True:
-                chunk = body.read(chunk_size)
-                if not chunk:
-                    break
-                f.write(chunk)
-                f.flush()
+        try:
+            print(f"Descargando {key} a {destination_path}...")
+            with open(destination_path, "wb") as f:
+                print(f"Abriendo conexión a R2 para el objeto {key}...")
+                obj = self.s3.get_object(Bucket=self.bucket, Key=key)
+                print(f"Iniciando descarga en chunks de {chunk_size} bytes...")
+                body = obj["Body"]
+                print(f"Descargando...")
+                while True:
+                    chunk = body.read(chunk_size)
+                    if not chunk:
+                        print(f"Descarga completada.")
+                        break
+                    f.write(chunk)
+                    f.flush()
+        except Exception as e:
+            print(f"Error descargando {key} desde R2: {e}")
+            raise e

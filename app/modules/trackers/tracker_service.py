@@ -5,7 +5,12 @@ from typing import List, Union
 import supervision as sv
 from cv2.typing import MatLike
 from app.entities.interfaces.record_collection_base import RecordCollectionBase
+from app.entities.interfaces.tracker_base import Tracker
 from app.entities.interfaces.tracker_service_base import TrackerServiceBase
+from app.entities.models.BallState import BallEventModel
+from app.entities.models.PlayerState import PlayerStateModel
+from app.modules.services.bbox_processor_service import get_center_of_bbox
+from app.modules.trackers.tracker_factory import TrackerFactory
 
 class TrackerService(TrackerServiceBase):
     """
@@ -14,41 +19,114 @@ class TrackerService(TrackerServiceBase):
     """
 
     def __init__(self, model_path: str, use_half_precision: bool = False):
-        super().__init__(model_path, use_half_precision)
+        super().__init__(model_path=model_path, use_half_precision=use_half_precision)
         self.last_tracked: sv.Detections | None = None
 
     # Mantengo la firma anterior: get_object_tracks (compatibilidad)
-    def get_object_tracks(
-        self,
-        frames: Union[List[MatLike], MatLike],
-        frame_num: int,
-        
-        tracks_collection: RecordCollectionBase,
-    ):
-        """
-        Procesa una lista de frames o un frame simple. Llama a process_frame iterativamente.
-        """
-        if isinstance(frames, list):
-            for i, frame in enumerate(frames):
-                self.process_frame(frame, i, tracks_collection)
-        else:
-            self.process_frame(frames, frame_num, tracks_collection)
-
-    # process_frame está definido en la clase base y puede ser sobrescrito si quieres
-    # Aquí solo sobreescribimos para añadir logging / hooks si se desea
     def process_frame(
         self,
         frame: MatLike,
         frame_num: int,
         tracks_collection: RecordCollectionBase,
-        conf: float = 0.1
-    ):
+        conf: float = 0.1,
+    ) -> None:
+        """
+        Procesa un único frame en modo streaming:
+        1) detecta
+        2) convierte a supervision
+        3) actualiza ByteTrack
+        4) distribuye a trackers registrados
+        """
         try:
-            super().process_frame(frame, frame_num, tracks_collection, conf=conf)
-            # guardar el último tracked para que servicios externos lo consuman
-            # (super().process_frame ya actualiza el tracker interno)
-            # reconvertimos estado desde el tracker (si supervisor lo expone)
-            # la forma simple: la última detección tracked la obtuvimos en el proceso
-            # Si necesitas exponer algo más complejo, lo puedes extraer aquí.
+            # 1) Detectar (modelo retorna lista de Results aunque pasemos single frame)
+            print("Detectando en frame...")
+            results = self.detect_frames([frame], conf=conf)
+            print("Detección finalizada.")
+            if not results:
+                print("No se obtuvieron resultados de detección.")
+                return
+
+            # results[0] es la detección del frame
+            print("Procesando resultados de detección...")
+            result = results[0]
+
+            # 2) map de clases
+            print("Mapeando clases...")
+            cls_names = getattr(result, "names", {})
+            cls_names_inv = {v: k for k, v in cls_names.items()}
+
+            # 3) convertir a supervision
+            det_sv = sv.Detections.from_ultralytics(result)
+
+            # 4) tracking (ByteTrack) — devuelve detections con track_id
+            print("Actualizando ByteTrack...")
+            tracked = self.tracker.update_with_detections(det_sv)
+
+            for tracker in self.get_trackers():
+                try:
+                    print(f"Ejecutando tracker {tracker}...")
+                    if not tracker:
+                        break
+                    
+                    if not isinstance(tracker, Tracker):
+                        print(f"Tracker {tracker} no es instancia de Tracker. Se omite.")
+                        continue
+                    
+                    tracker.get_object_tracks(
+                        detection_with_tracks=tracked,
+                        cls_names_inv=cls_names_inv,
+                        frame_num=frame_num,
+                        detection_supervision=det_sv,
+                        tracks_collection=tracks_collection
+                    )
+                except Exception as e:
+                    logging.exception(f"Error executing tracker {tracker}: {e}")
         except Exception as e:
-            logging.exception(f"TrackerService.process_frame error: {e}")
+            logging.exception(f"Error processing frame {frame_num}: {e}")
+
+    def get_object_tracks(
+        self,
+        frames: Union[List[MatLike], MatLike],
+        frame_num: int,
+        tracks_collection: RecordCollectionBase,
+    ):
+        """
+        Compatibilidad con API anterior que pasaba una lista de frames.
+        En streaming, se le puede pasar un único frame.
+        """
+        print("TrackerService.get_object_tracks called.")
+        if isinstance(frames, list):
+            print(f"Procesando lista de {len(frames)} frames...")
+            for i, frame in enumerate(frames):
+                self.process_frame(frame, i, tracks_collection)
+        else:
+            print("Procesando un solo frame...")
+            # Un solo frame — mantenemos frame_num = 0 si no se especifica
+            self.process_frame(frames, 0, tracks_collection)
+
+
+    def get_tracker(self, key: str):
+        from app.modules.trackers.tracker_factory import TrackerFactoryError
+        try:
+            tracker = self.tracker_factory.get_tracker(key)
+            if not tracker:
+                raise TrackerFactoryError(f"Tracker '{key}' is not registered.")
+            return tracker
+        except Exception as e:
+            logging.exception(f"Error getting tracker {key}: {e}")
+            print(f"Error getting tracker {key}: {e}")
+            raise e
+
+    def get_trackers(self) -> List:
+        return list(self.tracker_factory.get_trackers().values())
+
+    def add_position_to_track(self, track_detail: PlayerStateModel | BallEventModel) -> PlayerStateModel | BallEventModel:
+        try:
+            bbox = track_detail.get_bbox()
+            position = get_center_of_bbox(bbox)
+            track_detail.position = position
+            return track_detail
+        except Exception as e:
+            logging.exception(f"Error adding position to track {track_detail}: {e}")
+            print(f"Error adding position to track {track_detail}: {e}")
+            return track_detail

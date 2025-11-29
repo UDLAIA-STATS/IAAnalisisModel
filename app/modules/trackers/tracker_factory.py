@@ -1,85 +1,63 @@
 from typing import Dict, Type
-
 from app.entities.interfaces.tracker_base import Tracker
 from ultralytics.models import YOLO
 
-from app.entities.trackers.ball_tracker import BallTracker
-from app.entities.trackers.player_tracker import PlayerTracker
-
+from app.entities.utils.singleton import Singleton
 
 class TrackerFactoryError(Exception):
-    """Errores relacionados con la creación y registro de trackers."""
     pass
 
-
-class TrackerFactory:
-    """
-    Crea e inicializa todos los trackers del sistema.
-    Cada tracker comparte el modelo YOLO principal, pero NO el tracker (ByteTrack),
-    ya que este pertenece a TrackerService.
-    """
-
+class TrackerFactory(metaclass=Singleton):
     def __init__(self, model: YOLO):
-        """
-        Inicializa el factory con el modelo YOLO compartido y crea
-        los trackers por defecto.
-        """
-        self.model = model  # Primero asignamos el modelo
-        self._registry: Dict[str, Tracker] = {}
-
-        # Luego creamos los trackers por defecto
+        self.model = model
+        # registramos clases (no instancias)
+        self._registry_classes: Dict[str, Type[Tracker]] = {}
+        # cache para instancias creadas (lazy)
+        self._instances: Dict[str, Tracker] = {}
         self._create_default_trackers()
 
-    # ---------------------------------------------------------
-    # Registro básico
-    # ---------------------------------------------------------
-
     def _create_default_trackers(self) -> None:
-        """
-        Registrar los trackers por defecto: 'player' y 'ball'.
-        """
-        self._register("player", PlayerTracker)
-        self._register("ball", BallTracker)
+        # Importar aquí para evitar circular imports al nivel module
+        from app.entities.trackers.player_tracker import PlayerTracker
+        from app.entities.trackers.ball_tracker import BallTracker
 
-    def _register(self, key: str, tracker_cls: Type[Tracker]) -> None:
-        """
-        Registrar una clase tracker bajo una clave única.
-        """
-        if key in self._registry:
-            raise TrackerFactoryError(
-                f"Tracker '{key}' is already registered."
-            )
+        self._register_class("player", PlayerTracker)
+        self._register_class("ball", BallTracker)
 
-        # Instancia del tracker con el modelo compartido
-        self._registry[key] = tracker_cls()
+    def _register_class(self, key: str, tracker_cls: Type[Tracker]) -> None:
+        if key in self._registry_classes:
+            raise TrackerFactoryError(f"Tracker '{key}' is already registered.")
+        self._registry_classes[key] = tracker_cls
 
-    # ---------------------------------------------------------
-    # Acceso a los trackers
-    # ---------------------------------------------------------
+    def _instantiate(self, key: str) -> Tracker:
+        if key in self._instances:
+            return self._instances[key]
+        cls = self._registry_classes.get(key)
+        if cls is None:
+            raise TrackerFactoryError(f"No tracker class registered for '{key}'.")
+        # Intentar pasar model si el constructor lo acepta, fallback a no args.
+        try:
+            inst = cls(self.model)
+        except TypeError:
+            inst = cls(self.model)
+        self._instances[key] = inst
+        return inst
 
     def get_trackers(self) -> Dict[str, Tracker]:
-        """
-        Obtener todos los trackers registrados.
-        """
-        return self._registry
+        # crea todas las instancias si no existen
+        for key in list(self._registry_classes.keys()):
+            if key not in self._instances:
+                self._instantiate(key)
+        return dict(self._instances)
 
     def get_tracker(self, key: str) -> Tracker:
-        """
-        Obtener un tracker por clave.
-        """
-        tracker = self._registry.get(key)
-        if not tracker:
-            raise TrackerFactoryError(f"Tracker '{key}' no está registrado.")
-        return tracker
-
-    # ---------------------------------------------------------
-    # Métodos adicionales útiles
-    # ---------------------------------------------------------
+        if key in self._instances:
+            return self._instances[key]
+        return self._instantiate(key)
 
     def reset_all(self) -> None:
-        """
-        Permite reiniciar todos los trackers.
-        Útil para escenarios de streaming donde el flujo se corta.
-        """
-        for tracker in self._registry.values():
-            tracker.reset()
+        for tracker in self.get_trackers().values():
+            try:
+                tracker.reset()
+            except Exception:
+                pass

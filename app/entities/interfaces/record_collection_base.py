@@ -32,15 +32,18 @@ class RecordCollectionBase(metaclass=Singleton):
         Busca un registro por track_id y frame_index.
         Puede ser sobrescrito si la colección usa otros campos.
         """
-        query = self.db.query(self.orm_model)
+        try:
+            query = self.db.query(self.orm_model)
 
-        if hasattr(self.orm_model, "track_id"):
-            query = query.filter(self.orm_model.track_id == track_id)
+            if hasattr(self.orm_model, "track_id"):
+                query = query.filter(self.orm_model.track_id == track_id)
 
-        if hasattr(self.orm_model, "frame_index"):
-            query = query.filter(self.orm_model.frame_index == frame_index)
+            if hasattr(self.orm_model, "frame_index"):
+                query = query.filter(self.orm_model.frame_index == frame_index)
 
-        return query.first()
+            return query.first()
+        except Exception as e:
+            print(f"Error al obtener registro para frame: {e}")
 
     def get_by_id(self, obj_id: int):
         return self.db.query(self.orm_model).filter(self.orm_model.id == obj_id).first()

@@ -1,10 +1,12 @@
 from app.tasks import analyze_router
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from app.utils.routes import ensure_directories
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 API iniciada")
+    ensure_directories()
     yield
     print("🛑 API detenida")
 

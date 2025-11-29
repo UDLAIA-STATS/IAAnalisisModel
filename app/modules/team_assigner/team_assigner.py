@@ -183,51 +183,56 @@ class TeamAssigner(metaclass=Singleton):
         Devuelve 1, 2 o -1. Utiliza smoothing temporal por jugador
         para evitar saltos por recortes malos.
         """
+        try:
         # obtener identificador estable: player_id preferible, si no id
-        player_id = getattr(record, "player_id", None) or getattr(record, "id", None)
-        if player_id is None:
-            return -1
-
-        # si no hay bbox válido → fallback a la historia previa
-        if not hasattr(record, "get_bbox"):
-            return -1
-        bbox = record.get_bbox()
-        if not bbox:
-            # usar majority vote de historial
-            hist = self.player_team_history[player_id]
-            if len(hist) == 0:
+            player_id = getattr(record, "player_id", None) or getattr(record, "id", None)
+            if player_id is None:
                 return -1
-            # devolver la decisión cacheada o mayoría
-            return self._majority_vote(hist)
 
-        # si no hay modelo entrenado → -1 (o podrías intentar bootstrap local)
-        if self.kmeans is None:
-            logging.debug("KMeans not initialized yet when predicting team.")
-            return -1
-
-        # extraer color (rápido)
-        color = self.extract_player_color(frame, bbox)
-        if color is None:
-            # no color -> fallback
-            hist = self.player_team_history[player_id]
-            if len(hist) == 0:
+            # si no hay bbox válido → fallback a la historia previa
+            if not hasattr(record, "get_bbox"):
                 return -1
-            return self._majority_vote(hist)
+            bbox = record.get_bbox()
+            if not bbox:
+                # usar majority vote de historial
+                hist = self.player_team_history[player_id]
+                if len(hist) == 0:
+                    return -1
+                # devolver la decisión cacheada o mayoría
+                return self._majority_vote(hist)
 
-        pred = self._predict_from_color(color)
-        if pred is None:
+            # si no hay modelo entrenado → -1 (o podrías intentar bootstrap local)
+            if self.kmeans is None:
+                logging.debug("KMeans not initialized yet when predicting team.")
+                return -1
+
+            # extraer color (rápido)
+            color = self.extract_player_color(frame, bbox)
+            if color is None:
+                # no color -> fallback
+                hist = self.player_team_history[player_id]
+                if len(hist) == 0:
+                    return -1
+                return self._majority_vote(hist)
+
+            pred = self._predict_from_color(color)
+            if pred is None:
+                return -1
+
+            # update smoothing history
+            self.player_team_history[player_id].append(pred)
+
+            # si la historia tiene suficiente longitud, usar mayoría; sino usar pred
+            hist = self.player_team_history[player_id]
+            team = self._majority_vote(hist) if len(hist) >= max(3, self.smoothing_window // 2) else pred
+
+            # actualizar cache y devolver
+            self.player_team_cache[player_id] = int(team)
+            return int(team)
+        except Exception as e:
+            logging.debug(f"Error predicting team: {e}")
+            print(f"Error predicting team: {e}")
             return -1
-
-        # update smoothing history
-        self.player_team_history[player_id].append(pred)
-
-        # si la historia tiene suficiente longitud, usar mayoría; sino usar pred
-        hist = self.player_team_history[player_id]
-        team = self._majority_vote(hist) if len(hist) >= max(3, self.smoothing_window // 2) else pred
-
-        # actualizar cache y devolver
-        self.player_team_cache[player_id] = int(team)
-        return int(team)
 
     # ---------------------------
     # Utilidades

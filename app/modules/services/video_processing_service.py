@@ -9,33 +9,45 @@ from app.entities.models import PlayerStateModel
 
 
 def read_video(video_path: str, target_width: int = 640, sample_rate=1) -> Generator[tuple[MatLike, float]]:
-    cap = cv2.VideoCapture(video_path)
+    try:
+        print(f"Abriendo video para lectura: {video_path}...")
+        cap = cv2.VideoCapture(video_path)
 
-    if not cap.isOpened():
-        raise FileNotFoundError(f"No se pudo abrir el video: {video_path}")
-    
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    frame_count = 0
-    dt = 1.0 / fps
+        if not cap.isOpened():
+            raise FileNotFoundError(f"No se pudo abrir el video: {video_path}")
 
-    frames = []
-    while True:
-        ret, frame = cap.read()
-        if not ret or not frame:
-            break
-        
-        frame_count += 1
-        if sample_rate > 1 and (frame_count % sample_rate) != 0:
-            continue
-        
-        h, w = frame.shape[:2]
-        if w != target_width:
-            scale = target_width / float(w)
-            new_h = int(h * scale)
-            frame = cv2.resize(frame, (target_width, new_h))
-        yield frame, dt 
+        print(f"Video abierto correctamente.")
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        print(f"FPS del video: {fps}")
+        frame_count = 0
+        dt = 1.0 / fps
 
-    cap.release()
+        while True:
+            print(f"Leyendo frame {frame_count + 1}...")
+            ret, frame = cap.read()
+            print(f"Frame leído: {'sí' if ret else 'no'}")
+            if not ret or not frame.any():
+                break
+            
+            frame_count += 1
+            if sample_rate > 1 and (frame_count % sample_rate) != 0:
+                continue
+
+            if not frame.any():
+                print(f"Frame {frame_count} vacío, saltando...")
+                continue
+
+            h, w = frame.shape[:2]
+            if w != target_width:
+                print(f"Redimensionando frame {frame_count}...")
+                scale = target_width / float(w)
+                new_h = int(h * scale)
+                frame = cv2.resize(frame, (target_width, new_h))
+            yield frame, dt
+        cap.release()
+    except Exception as e:
+        print(f"Error leyendo el video {video_path}: {e}")
+        raise e
 
 
 def extract_player_images(
@@ -61,62 +73,65 @@ def extract_player_images(
     :param player_image_counts: Mapa acumulado {player_id: cantidad}
     :param last_frame_taken: Mapa {player_id: ultimo_frame_guardado}
     """
+    try:
+        folder = pathlib.Path(output_folder)
+        folder.mkdir(parents=True, exist_ok=True)
 
-    folder = pathlib.Path(output_folder)
-    folder.mkdir(parents=True, exist_ok=True)
+        if player_image_counts is None:
+            player_image_counts = {}
 
-    if player_image_counts is None:
-        player_image_counts = {}
+        if last_frame_taken is None:
+            last_frame_taken = {}
 
-    if last_frame_taken is None:
-        last_frame_taken = {}
+        h, w = frame.shape[:2]
 
-    h, w = frame.shape[:2]
+        # Procesar solo records del frame actual
+        record = player.to_dict()
+        player_id = record.get("player_id", None)
+        bbox = player.get_bbox()
 
-    # Procesar solo records del frame actual
-    record = player.to_dict()
-    player_id = record.get("player_id", None)
-    bbox = player.get_bbox()
+        if bbox is None or len(bbox) != 4:
+            return player_image_counts, last_frame_taken
 
-    if bbox is None or len(bbox) != 4:
+        # Máximo por jugador
+        count = player_image_counts.get(player_id, 0)
+        if count >= images_per_player:
+            return player_image_counts, last_frame_taken
+
+        # Saltar frames cercanos
+        last_f = last_frame_taken.get(player_id, -frame_skip - 1)
+        if frame_index - last_f < frame_skip:
+            return player_image_counts, last_frame_taken
+        
+        h, w = frame.shape[:2]
+
+        # Validar bounding box
+        x1, y1, x2, y2 = map(int, bbox)
+
+        x1 = max(0, min(x1, w - 1))
+        x2 = max(0, min(x2, w - 1))
+        y1 = max(0, min(y1, h - 1))
+        y2 = max(0, min(y2, h - 1))
+
+        if x2 <= x1 or y2 <= y1:
+            return player_image_counts, last_frame_taken
+
+        if (x2 - x1) < 10 or (y2 - y1) < 10:
+            return player_image_counts, last_frame_taken
+        
+        torso_y2 = y1 + int((y2 - y1) * 0.6)
+        crop = frame[y1:torso_y2, x1:x2]
+        
+        if crop.size == 0:
+            return player_image_counts, last_frame_taken
+
+        # Guardar imagen
+        filename = folder / f"player_{player_id}_img_{count+1}_frame_{frame_index}.png"
+        cv2.imwrite(str(filename), crop)
+        player_image_counts.update({player_id: count + 1})
+        last_frame_taken.update({player_id: frame_index})
+
         return player_image_counts, last_frame_taken
-
-    # Máximo por jugador
-    count = player_image_counts.get(player_id, 0)
-    if count >= images_per_player:
-        return player_image_counts, last_frame_taken
-
-    # Saltar frames cercanos
-    last_f = last_frame_taken.get(player_id, -frame_skip - 1)
-    if frame_index - last_f < frame_skip:
-        return player_image_counts, last_frame_taken
-    
-    h, w = frame.shape[:2]
-
-    # Validar bounding box
-    x1, y1, x2, y2 = map(int, bbox)
-
-    x1 = max(0, min(x1, w - 1))
-    x2 = max(0, min(x2, w - 1))
-    y1 = max(0, min(y1, h - 1))
-    y2 = max(0, min(y2, h - 1))
-
-    if x2 <= x1 or y2 <= y1:
-        return player_image_counts, last_frame_taken
-
-    if (x2 - x1) < 10 or (y2 - y1) < 10:
-        return player_image_counts, last_frame_taken
-    
-    torso_y2 = y1 + int((y2 - y1) * 0.6)
-    crop = frame[y1:torso_y2, x1:x2]
-    
-    if crop.size == 0:
-        return player_image_counts, last_frame_taken
-
-    # Guardar imagen
-    filename = folder / f"player_{player_id}_img_{count+1}_frame_{frame_index}.png"
-    cv2.imwrite(str(filename), crop)
-    player_image_counts.update({player_id: count + 1})
-    last_frame_taken.update({player_id: frame_index})
-
-    return player_image_counts, last_frame_taken
+    except Exception as e:
+        print(f"Error extrayendo imagen de jugador { player.to_dict().get('player_id', None) } en frame {frame_index}: {e}")
+        raise e

@@ -73,20 +73,22 @@ class ViewTransformer:
         Compatible con la API real de RecordCollectionBase.
         """
 
-        all_records = records.get_all()
+        print("Transformando posiciones en registros...")
+        try:
+            all_records = records.get_all()
+            for record in all_records:
+                pos_adj = getattr(record, "position_adjusted", None)
+                if not pos_adj:
+                    continue
 
-        for record in all_records:
+                px, py = float(pos_adj[0]), float(pos_adj[1])
+                transformed = self.transform_point(np.array([px, py], dtype=np.float32))
 
-            pos_adj = getattr(record, "position_adjusted", None)
-            if not pos_adj:
-                continue
-
-            px, py = float(pos_adj[0]), float(pos_adj[1])
-
-            transformed = self.transform_point(np.array([px, py], dtype=np.float32))
-
-            # Persiste solo el campo transformado
-            records.patch(
-                record.id,
-                {"position_transformed": transformed}
-            )
+                # Persiste solo el campo transformado
+                records.patch(
+                    record.id,
+                    {"position_transformed": transformed}
+                )
+        except Exception as e:
+            print(f"Error transformando posiciones en records: {e}")
+            raise e

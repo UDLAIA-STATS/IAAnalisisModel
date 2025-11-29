@@ -9,3 +9,4 @@ from .database import (
     Base, engine, get_db, DATABASE_URL, SessionLocal,
     create_database
 )
+from .verify_model import prepare_model, model_exists

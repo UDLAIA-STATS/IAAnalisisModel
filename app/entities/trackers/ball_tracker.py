@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import supervision as sv
+from ultralytics import YOLO
 
 from app.entities.interfaces.tracker_base import Tracker
 from app.entities.interfaces.record_collection_base import RecordCollectionBase
@@ -9,8 +10,8 @@ from app.entities.interfaces.record_collection_base import RecordCollectionBase
 
 class BallTracker(Tracker):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, model: YOLO):
+        super().__init__(model)
 
     @staticmethod
     def _bbox_to_center_xy(bbox: list) -> tuple[float, float]:
@@ -20,13 +21,27 @@ class BallTracker(Tracker):
         return cx, cy
     
     def reset(self):
-        """
-        Resetea el estado interno del tracker.
-        """
-        # BallTracker no mantiene estado interno por ahora
+        """Resetea el estado interno del tracker."""
         pass
-
+    
     def get_object_tracks(
+        self,
+        detection_with_tracks,
+        cls_names_inv,
+        frame_num,
+        detection_supervision,
+        tracks_collection
+    ):
+        print(f"[BallTracker] get_object_tracks llamado frame {frame_num}")
+        self.get_tracker_tracks(
+            detection_with_tracks,
+            cls_names_inv,
+            frame_num,
+            detection_supervision,
+            tracks_collection
+        )
+
+    def get_tracker_tracks(
         self,
         detection_with_tracks: sv.Detections,
         cls_names_inv: dict[str, int],
@@ -34,18 +49,16 @@ class BallTracker(Tracker):
         detection_supervision: sv.Detections,
         tracks_collection: RecordCollectionBase
     ):
-        """
-        Extrae la primera detección de clase 'ball' (si existe) y persiste un
-        registro en BallEventModel via tracks_collection.post/patch.
-        """
+        print(f"[BallTracker] START get_tracker_tracks frame {frame_num}")
 
         if detection_with_tracks is None:
+            print(f"[BallTracker] No detecciones para frame {frame_num}")
             return
 
         xyxy = getattr(detection_with_tracks, "xyxy", None)
         class_ids = getattr(detection_with_tracks, "class_id", None)
-
         if xyxy is None or class_ids is None:
+            print(f"[BallTracker] No xyxy o class_ids para frame {frame_num}")
             return
 
         # normalizar arrays
@@ -58,27 +71,25 @@ class BallTracker(Tracker):
 
         ball_class_idx = cls_names_inv.get("ball")
         if ball_class_idx is None:
-            logging.debug("[BallTracker] 'ball' class not present in cls_names_inv")
+            print(f"[BallTracker] No hay clase 'ball' en frame {frame_num}")
             return
 
-        # mascara y existencia
         try:
             mask = class_ids_arr == ball_class_idx
         except Exception:
             mask = (class_ids_arr == ball_class_idx)
 
         if not getattr(mask, "any", lambda: False)():
+            print(f"[BallTracker] Ningún balón detectado en frame {frame_num}")
             return
 
-        # tomar la primera bbox detectada de balón
         try:
             ball_bbox = xyxy_arr[mask][0].tolist()
         except Exception:
-            logging.debug("[BallTracker] Error extracting ball bbox")
+            print(f"[BallTracker] Error extrayendo bbox en frame {frame_num}")
             return
 
         cx, cy = self._bbox_to_center_xy(ball_bbox)
-
         payload = {
             "frame_index": int(frame_num),
             "x": float(cx),
@@ -87,29 +98,19 @@ class BallTracker(Tracker):
             "owner_id": None
         }
 
-        # Intentar buscar registro existente usando la API genérica
         existing = None
         try:
             if hasattr(tracks_collection, "get_record_for_frame"):
-                existing = tracks_collection.get_record_for_frame(
-                    track_id=0,        # para ball, track_id no aplica; método puede ignorarlo
-                    frame_index=int(frame_num)
-                )
+                existing = tracks_collection.get_record_for_frame(track_id=0, frame_index=int(frame_num))
         except Exception:
             existing = None
 
-        # Si get_record_for_frame no es suficientemente específico (ej. no filtra por frame_index),
-        # hacer una consulta directa por frame_index
         if existing is None:
             try:
                 orm = getattr(tracks_collection, "orm_model", None)
                 db = getattr(tracks_collection, "db", None)
                 if orm is not None and db is not None and hasattr(orm, "frame_index"):
-                    existing = (
-                        db.query(orm)
-                        .filter(orm.frame_index == int(frame_num))
-                        .first()
-                    )
+                    existing = db.query(orm).filter(orm.frame_index == int(frame_num)).first()
             except Exception:
                 existing = None
 
@@ -119,4 +120,6 @@ class BallTracker(Tracker):
             else:
                 tracks_collection.post(payload)
         except Exception as e:
-            logging.exception(f"[BallTracker] DB error persisting ball event: {e}")
+            print(f"[BallTracker] DB error frame {frame_num}: {e}")
+
+        print(f"[BallTracker] END get_tracker_tracks frame {frame_num}")
