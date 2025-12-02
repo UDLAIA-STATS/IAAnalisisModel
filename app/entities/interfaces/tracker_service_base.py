@@ -8,8 +8,14 @@ import torch
 from ultralytics.models import YOLO
 
 
+from app.entities.interfaces.record_collection_base import RecordCollectionBase
+from app.entities.interfaces.tracker_base import Tracker
+from app.entities.models.BallState import BallEventModel
+from app.entities.models.PlayerState import PlayerStateModel
 from app.entities.utils.singleton import AbstractSingleton
 from app.layers.infraestructure.video_analysis.trackers.entities.ball_tracker import BallTracker
+from app.modules.services.bbox_processor_service import get_center_of_bbox
+from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
     from app.modules.trackers.tracker_factory import TrackerFactory
@@ -25,14 +31,14 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
 
     def __init__(self, model_path: str, use_half_precision: bool = False):
         from app.modules.trackers.tracker_factory import TrackerFactory
-        self.model = self.__load_detector(model_path, use_half_precision)
+        self.model = self.__load_detector__(model_path, use_half_precision)
         self.tracker = sv.ByteTrack()
         self.tracker_factory = TrackerFactory(self.model)
         self.tracker_path = "bytetrack.yaml"
         self._device = 'cuda' if torch.cuda.is_available() else 'cpu'
         logging.info(f"TrackerServiceBase initialized on device={self._device}")
 
-    def __load_detector(self, model_path: str, use_half_precision: bool = False) -> YOLO:
+    def __load_detector__(self, model_path: str, use_half_precision: bool = False) -> YOLO:
         model = YOLO(model=model_path, task='obb', verbose=False)
         if torch.cuda.is_available():
             model.to('cuda')
@@ -59,3 +65,78 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
         """
         print("Detectando en frames...")
         return self.model.predict(frames, conf=conf)
+    
+    def process_frame(
+        self,
+        frame: MatLike,
+        frame_num: int,
+        db: Session,
+        conf: float = 0.1,
+    ) -> None:
+        """
+        Procesa un único frame en modo streaming:
+        1) detecta
+        2) convierte a supervision
+        3) actualiza ByteTrack
+        4) distribuye a trackers registrados
+        """
+        try:
+            # 1) Detectar (modelo retorna lista de Results aunque pasemos single frame)
+            print("Detectando en frame...")
+            results = self.detect_frames([frame], conf=conf)
+            print("Detección finalizada.")
+            if not results:
+                print("No se obtuvieron resultados de detección.")
+                return
+
+            # results[0] es la detección del frame
+            print("Procesando resultados de detección...")
+            result = results[0]
+
+            # 2) map de clases
+            print("Mapeando clases...")
+            cls_names = getattr(result, "names", {})
+            cls_names_inv = {v: k for k, v in cls_names.items()}
+
+            # 3) convertir a supervision
+            det_sv = sv.Detections.from_ultralytics(result)
+
+            # 4) tracking (ByteTrack) — devuelve detections con track_id
+            print("Actualizando ByteTrack...")
+            tracked = self.tracker.update_with_detections(det_sv)
+
+            for tracker in self.get_trackers():
+                try:
+                    print(f"Ejecutando tracker {tracker}...")
+                    if not tracker:
+                        break
+                    
+                    if not isinstance(tracker, Tracker):
+                        print(f"Tracker {tracker} no es instancia de Tracker. Se omite.")
+                        continue
+                    
+                    tracker.get_object_tracks(
+                        detection_with_tracks=tracked,
+                        cls_names_inv=cls_names_inv,
+                        frame_num=frame_num,
+                        detection_supervision=det_sv,
+                        db=db
+                    )
+                except Exception as e:
+                    logging.exception(f"Error executing tracker {tracker}: {e}")
+        except Exception as e:
+            logging.exception(f"Error processing frame {frame_num}: {e}")
+            
+    def get_trackers(self) -> List:
+        return list(self.tracker_factory.get_trackers().values())
+
+    def add_position_to_track(self, track_detail: PlayerStateModel | BallEventModel) -> PlayerStateModel | BallEventModel:
+        try:
+            bbox = track_detail.get_bbox()
+            position = get_center_of_bbox(bbox)
+            track_detail.position = position
+            return track_detail
+        except Exception as e:
+            logging.exception(f"Error adding position to track {track_detail}: {e}")
+            print(f"Error adding position to track {track_detail}: {e}")
+            return track_detail

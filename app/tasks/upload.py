@@ -1,4 +1,3 @@
-from datetime import timezone
 import datetime
 from io import BytesIO
 import boto3
@@ -7,16 +6,21 @@ from botocore.client import Config
 
 s3_client = boto3.client(
     "s3",
-    endpoint_url=config("S3_CLIENT_ACCOUNT_ENDPOINT"),
+    endpoint_url=config("VIDEOS_S3_ENDPOINT"),
     aws_access_key_id=config("R2_ACCESS_KEY_ID"),
     aws_secret_access_key=config("R2_SECRET_ACCESS_KEY"),
     region_name="auto",
     config=Config(signature_version="s3v4")
 )
 
-def upload_video_file(filename: str, file_bytes: bytes, id_partido: str):
+def upload_video_file(
+    match_id: int,
+    player_id: str,
+    filename: str,
+    file_bytes: bytes,
+):
     timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H%M%S")
-    key = f"{id_partido}/{timestamp}_{filename}"
+    key = f"player_{player_id}_match_{match_id}/{timestamp}_{filename}"
     upload(key, file_bytes)
 
 def upload(key: str, file_bytes: bytes):

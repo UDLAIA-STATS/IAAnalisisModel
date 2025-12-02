@@ -1,35 +1,34 @@
 import logging
 import json
+from typing import override
 
 import numpy as np
 import supervision as sv
 from ultralytics import YOLO
+from sqlalchemy.orm import Session
 
 from app.entities.interfaces.tracker_base import Tracker
-from app.entities.interfaces.record_collection_base import RecordCollectionBase
+from app.entities.collections import TrackCollectionPlayer
+from app.layers.domain import tracks 
 
 class PlayerTracker(Tracker):
 
     def __init__(self, model: YOLO):
         super().__init__(model)
 
-    @staticmethod
-    def _bbox_center(bbox: list) -> tuple[float, float]:
-        x1, y1, x2, y2 = bbox
-        cx = float((x1 + x2) / 2.0)
-        cy = float((y1 + y2) / 2.0)
-        return cx, cy
-    
+
+    @override
     def reset(self) -> None:
         pass
     
+    @override
     def get_object_tracks(
         self,
         detection_with_tracks,
         cls_names_inv,
         frame_num,
         detection_supervision,
-        tracks_collection
+        db: Session
     ):
         print(f"[PlayerTracker] get_object_tracks llamado frame {frame_num}")
         self.get_tracker_tracks(
@@ -37,7 +36,7 @@ class PlayerTracker(Tracker):
             cls_names_inv,
             frame_num,
             detection_supervision,
-            tracks_collection
+            db
         )
 
     def get_tracker_tracks(
@@ -46,8 +45,9 @@ class PlayerTracker(Tracker):
         cls_names_inv: dict[str, int],
         frame_num: int,
         detection_supervision: sv.Detections,
-        tracks_collection: RecordCollectionBase
+        db: Session
     ):
+        tracks_collection = TrackCollectionPlayer(db)
         print(f"[PlayerTracker] START get_tracker_tracks frame {frame_num}")
 
         if detection_with_tracks is None:
@@ -85,8 +85,6 @@ class PlayerTracker(Tracker):
         player_bboxes = xyxy_arr[mask]
         player_ids = tracker_ids_arr[mask]
 
-        orm = getattr(tracks_collection, "orm_model", None)
-        db = getattr(tracks_collection, "db", None)
 
         for bbox_arr, raw_tid in zip(player_bboxes, player_ids):
             if raw_tid is None:
@@ -101,7 +99,7 @@ class PlayerTracker(Tracker):
             except Exception:
                 bbox_list = list(map(float, bbox_arr))
 
-            cx, cy = self._bbox_center(bbox_list)
+            cx, cy = self._bbox_to_center(bbox_list)
             payload = {
                 "player_id": track_id,
                 "frame_index": int(frame_num),
@@ -113,19 +111,9 @@ class PlayerTracker(Tracker):
 
             existing = None
             try:
-                if hasattr(tracks_collection, "get_record_for_frame"):
-                    existing = tracks_collection.get_record_for_frame(track_id=track_id, frame_index=int(frame_num))
+                existing = tracks_collection.get_record_for_frame(track_id=track_id, frame_index=int(frame_num))
             except Exception:
                 existing = None
-
-            if existing is None and orm is not None and db is not None:
-                try:
-                    if hasattr(orm, "player_id") and hasattr(orm, "frame_index"):
-                        existing = db.query(orm).filter(
-                            orm.player_id == track_id, orm.frame_index == int(frame_num)
-                        ).first()
-                except Exception:
-                    existing = None
 
             try:
                 if existing:

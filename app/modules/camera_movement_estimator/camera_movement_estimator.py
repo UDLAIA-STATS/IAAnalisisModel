@@ -2,9 +2,11 @@ import cv2
 import numpy as np
 from cv2.typing import MatLike
 
-from app.entities.interfaces import RecordCollectionBase
 from app.entities.models import PlayerStateModel, BallEventModel
 from app.entities.utils import Singleton
+from sqlalchemy.orm import Session
+
+from app.layers.domain import tracks
 
 class CameraMovementEstimator(metaclass=Singleton):
     """
@@ -109,12 +111,13 @@ class CameraMovementEstimator(metaclass=Singleton):
         self,
         camera_movement_per_frame,
         track: PlayerStateModel | BallEventModel,
-        collection: RecordCollectionBase,
+        db: Session
     ):
         """
         Ajusta la posición del jugador/ balón compensando movimiento de cámara.
         """
         try:
+            tracks_collection = None
             dx, dy = camera_movement_per_frame
             x, y = track.x, track.y
             position_adjusted = (x - dx, y - dy)
@@ -123,8 +126,19 @@ class CameraMovementEstimator(metaclass=Singleton):
                 "x": position_adjusted[0],
                 "y": position_adjusted[1]
             }
+            
+            if isinstance(track, PlayerStateModel):
+                from app.entities.collections import TrackCollectionPlayer
+                tracks_collection = TrackCollectionPlayer(db)
+            elif isinstance(track, BallEventModel):
+                from app.entities.collections import TrackCollectionBall
+                tracks_collection = TrackCollectionBall(db)
+            
+            if not tracks_collection:
+                raise ValueError("tracks_collection no pudo ser determinado.")
+            
+            tracks_collection.patch(int(f'{track.id}'), updates)
 
-            collection.patch(track.to_dict()['id'], updates)
         except Exception as e:
             print(f"Error ajustando posición del track {track}: {e}")
             raise e

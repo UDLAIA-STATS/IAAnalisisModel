@@ -54,6 +54,16 @@ class SpeedAndDistanceEstimator(metaclass=Singleton):
         return v1 + (v1 - v2)
 
     def _smooth_positions_array(self, positions: List[Optional[np.ndarray]]) -> List[np.ndarray]:
+        """
+        Smooths an array of positions (x, y) using Savitzky-Golay filter.
+
+        Args:
+            positions (List[Optional[np.ndarray]]): List of positions (x, y)
+
+        Returns:
+            List[np.ndarray]: Smooothed list of positions (x, y)
+        """
+
         xs = [p[0] for p in positions if p is not None]
         ys = [p[1] for p in positions if p is not None]
 
@@ -75,11 +85,21 @@ class SpeedAndDistanceEstimator(metaclass=Singleton):
         model_class,
     ) -> None:
         """
-        Procesa *un solo track* (PlayerStateModel) en este frame.
+        Procesa un track de un jugador en un frame.
+
+        Args:
+            frame_num (int): Número de frame relativo al batch/frame procesado
+            track_id (int): Identificador del jugador
+            track (PlayerStateModel): Estado del usuario en el frame
+            db (Session): Sesión de base de datos
+            model_class: Clase de modelo para persistir resultados
+
+        Returns:
+            None
         """
         try:
             pos = track.position  # Debe ser np.array([x,y]) después de homografía
-
+            print(f"Procesando track {track_id} en frame {frame_num} con posición {pos}")
             # Inicializar buffers
             if track_id not in self.position_history:
                 self.position_history[track_id] = []
@@ -88,13 +108,14 @@ class SpeedAndDistanceEstimator(metaclass=Singleton):
 
             # Agregar posición
             self.position_history[track_id].append(pos)
-
+            print(f"Posición agregada para track {track_id}: {pos}")
             # Mantener tamaño del buffer
             if len(self.position_history[track_id]) > self.history_size:
                 self.position_history[track_id].pop(0)
-
+            print(f"Historial de posiciones para track {track_id}: {self.position_history[track_id]}")
             # Interpolación si no hay detección
             if pos is None:
+                print(f"No hay detección para track {track_id}")
                 interpolated = self._interpolate_last(self.position_history[track_id])
                 self.position_history[track_id][-1] = interpolated
                 pos = interpolated
@@ -102,11 +123,14 @@ class SpeedAndDistanceEstimator(metaclass=Singleton):
             # Suavizado
             smooth_positions = self._smooth_positions_array(self.position_history[track_id])
             smoothed_pos = smooth_positions[-1]
+            print(f"Posición suavizada para track {track_id}: {smoothed_pos}")
 
             # Velocidad
             if len(smooth_positions) >= 2:
+                # Distancia en metros
                 dist_m = measure_scalar_distance(smooth_positions[-1], smooth_positions[-2])
                 speed_kmh = (dist_m * self.frame_rate) * 3.6
+                print(f"Velocidad calculada para track {track_id}: {speed_kmh} km/h")
             else:
                 speed_kmh = 0.0
 
@@ -114,8 +138,10 @@ class SpeedAndDistanceEstimator(metaclass=Singleton):
             self.speed_history[track_id].append(speed_kmh)
             if len(self.speed_history[track_id]) > self.history_size:
                 self.speed_history[track_id].pop(0)
+            print(f"Historial de velocidades para track {track_id}: {self.speed_history[track_id]}")
 
             smooth_speed_kmh = self._smooth_values(self.speed_history[track_id])[-1]
+            print(f"Velocidad suavizada para track {track_id}: {smooth_speed_kmh} km/h")
 
             # Aceleración
             if len(self.speed_history[track_id]) >= 2:
@@ -123,32 +149,36 @@ class SpeedAndDistanceEstimator(metaclass=Singleton):
                 acceleration = (v1 - v2) / (1 / self.frame_rate)
             else:
                 acceleration = 0.0
+            print(f"Aceleración calculada para track {track_id}: {acceleration} km/h²")
 
             # Distancia incremental
             if len(smooth_positions) >= 2:
                 incremental_dist = measure_scalar_distance(smooth_positions[-1], smooth_positions[-2])
             else:
                 incremental_dist = 0.0
+            print(f"Distancia incremental para track {track_id}: {incremental_dist} metros")
 
             # Distancia total
             total_distance = float(sum(
                 measure_scalar_distance(p1, p2)
                 for p1, p2 in zip(smooth_positions[:-1], smooth_positions[1:])
             ))
+            print(f"Distancia total para track {track_id}: {total_distance} metros")
 
             # Sprint
             is_sprint = smooth_speed_kmh >= self.sprint_threshold
+            print(f"¿Está sprintando el track {track_id}? {'Sí' if is_sprint else 'No'}")
 
             # Persistencia
             obj = model_class(
                 track_id=track_id,
-                frame=frame_num,
-                pos_x=float(smoothed_pos[0]),
-                pos_y=float(smoothed_pos[1]),
-                speed_kmh=float(smooth_speed_kmh),
+                frame_index=frame_num,
+                x_smoothed=float(smoothed_pos[0]),
+                y_smoothed=float(smoothed_pos[1]),
+                speed=float(smooth_speed_kmh),
                 acceleration=float(acceleration),
                 incremental_distance=float(incremental_dist),
-                total_distance=float(total_distance),
+                distance=float(total_distance),
                 is_sprint=is_sprint,
             )
 

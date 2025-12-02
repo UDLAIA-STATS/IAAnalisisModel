@@ -1,11 +1,13 @@
 import logging
+from typing import override
 
 import numpy as np
 import supervision as sv
 from ultralytics import YOLO
 
+from app.entities.collections.track_collections import TrackCollectionBall
 from app.entities.interfaces.tracker_base import Tracker
-from app.entities.interfaces.record_collection_base import RecordCollectionBase
+from sqlalchemy.orm import Session
 
 
 class BallTracker(Tracker):
@@ -13,24 +15,20 @@ class BallTracker(Tracker):
     def __init__(self, model: YOLO):
         super().__init__(model)
 
-    @staticmethod
-    def _bbox_to_center_xy(bbox: list) -> tuple[float, float]:
-        x1, y1, x2, y2 = bbox
-        cx = float((x1 + x2) / 2.0)
-        cy = float((y1 + y2) / 2.0)
-        return cx, cy
     
+    @override
     def reset(self):
         """Resetea el estado interno del tracker."""
         pass
     
+    @override
     def get_object_tracks(
         self,
         detection_with_tracks,
         cls_names_inv,
         frame_num,
         detection_supervision,
-        tracks_collection
+        db: Session
     ):
         print(f"[BallTracker] get_object_tracks llamado frame {frame_num}")
         self.get_tracker_tracks(
@@ -38,7 +36,7 @@ class BallTracker(Tracker):
             cls_names_inv,
             frame_num,
             detection_supervision,
-            tracks_collection
+            db
         )
 
     def get_tracker_tracks(
@@ -47,8 +45,9 @@ class BallTracker(Tracker):
         cls_names_inv: dict[str, int],
         frame_num: int,
         detection_supervision: sv.Detections,
-        tracks_collection: RecordCollectionBase
+        db: Session
     ):
+        tracks_collection = TrackCollectionBall(db)
         print(f"[BallTracker] START get_tracker_tracks frame {frame_num}")
 
         if detection_with_tracks is None:
@@ -89,7 +88,7 @@ class BallTracker(Tracker):
             print(f"[BallTracker] Error extrayendo bbox en frame {frame_num}")
             return
 
-        cx, cy = self._bbox_to_center_xy(ball_bbox)
+        cx, cy = self._bbox_to_center(ball_bbox)
         payload = {
             "frame_index": int(frame_num),
             "x": float(cx),
@@ -100,19 +99,9 @@ class BallTracker(Tracker):
 
         existing = None
         try:
-            if hasattr(tracks_collection, "get_record_for_frame"):
-                existing = tracks_collection.get_record_for_frame(track_id=0, frame_index=int(frame_num))
+            existing = tracks_collection.get_record_for_frame(track_id=0, frame_index=int(frame_num))
         except Exception:
             existing = None
-
-        if existing is None:
-            try:
-                orm = getattr(tracks_collection, "orm_model", None)
-                db = getattr(tracks_collection, "db", None)
-                if orm is not None and db is not None and hasattr(orm, "frame_index"):
-                    existing = db.query(orm).filter(orm.frame_index == int(frame_num)).first()
-            except Exception:
-                existing = None
 
         try:
             if existing:

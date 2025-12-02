@@ -23,6 +23,14 @@ class PlayerStateModel(Base):
     x = Column(Float)
     y = Column(Float)
     z = Column(Float)
+    
+    # transformed position
+    x_transformed = Column(Float, nullable=True)
+    y_transformed = Column(Float, nullable=True)
+    
+    #Smoothed position
+    x_smoothed = Column(Float, nullable=True)
+    y_smoothed = Column(Float, nullable=True)
 
     # Balón
     ball_x = Column(Float, nullable=True)
@@ -57,12 +65,12 @@ class PlayerStateModel(Base):
 
     def get_bbox(self):
         """Convierte JSON almacenado → lista Python"""
-        bbox = self.to_dict()
-        if bbox["bbox"] is None:
+        if self.bbox is None:
             return None
 
         try:
-            return json.loads(bbox["bbox"])
+            bbox = f'{self.bbox}'
+            return json.loads(bbox)
         except Exception:
             return None
 

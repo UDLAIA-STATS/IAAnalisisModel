@@ -3,7 +3,6 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 from app.modules.services import get_db
-from app.entities.collections import TrackCollectionPlayer
 from app.entities.models import AnalyzeRequest
 from app.tasks.background_task import process_video_async
 

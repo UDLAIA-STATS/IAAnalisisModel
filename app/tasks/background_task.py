@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import pathlib
 from sqlalchemy import create_engine
@@ -6,7 +7,7 @@ from app.entities.collections.track_collections import TrackCollectionPlayer
 from app.modules.services.database import Base
 from sqlalchemy.orm import sessionmaker, Session
 
-from app.tasks.upload import upload_player_records
+from app.tasks.upload import upload
 
 async def process_video_async(video_name: str, match_id: int):
     """
@@ -87,8 +88,9 @@ async def export_data(db: Session, match_id: int):
         json.dump(export_data, f, indent=2, ensure_ascii=False)
         
     file_bytes = output_file.read_bytes()
-    await upload_player_records(
-        filename=output_file.name,
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    key = f"match_{match_id}/{timestamp}_{output_file.name}"
+    upload(
+        key=key,
         file_bytes=file_bytes,
-        match_id=match_id
     )

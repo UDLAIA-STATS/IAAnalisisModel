@@ -12,6 +12,11 @@ class BallEventModel(Base):
     x = Column(Float)
     y = Column(Float)
     z = Column(Float)
+    
+    # transformed position
+    x_transformed = Column(Float, nullable=True)
+    y_transformed = Column(Float, nullable=True)
+    
     bbox = Column(String, nullable=True)
     owner_id = Column(Integer)
     

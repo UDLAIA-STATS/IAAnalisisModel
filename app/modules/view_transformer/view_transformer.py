@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
+from sqlalchemy.orm import Session
 
-from app.entities.interfaces.record_collection_base import RecordCollectionBase
+from app.entities.collections import TrackCollectionBall, TrackCollectionPlayer
 
 
 class ViewTransformer:
@@ -10,10 +11,13 @@ class ViewTransformer:
     Se integra con RecordCollectionBase para persistir puntos transformados.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        field_length_m: float = 105.0,
+        field_width_m: float = 68.0):
         # Medidas reales del campo de fútbol (en metros)
-        FIELD_LENGTH = 105.0
-        FIELD_WIDTH = 68.0
+        FIELD_LENGTH = field_length_m
+        FIELD_WIDTH = field_width_m
 
         # Coordenadas del polígono detectado en la imagen (4 puntos en píxeles)
         self.pixel_vertices = np.array([
@@ -67,28 +71,140 @@ class ViewTransformer:
     # INTEGRACIÓN CON RECORD COLLECTION BASE
     # ---------------------------------------------------------
 
-    def add_transformed_positions(self, records: RecordCollectionBase):
+    def add_transformed_positions(self, db: Session):
         """
-        Itera sobre todos los registros persistidos y calcula position_transformed.
-        Compatible con la API real de RecordCollectionBase.
+        Ajusta la posición del balón y los jugadores en cada frame.
+        Luego de una base de datos, transforma los registros de balón y jugadores.
+        Si hay registros de balón pero no de jugadores, solo transforma los registros de balón.
+        Si hay registros de jugadores pero no de balón, solo transforma los registros de jugadores.
+        Si no hay registros de balón ni de jugadores, no hace nada.
         """
+        ball_collection = TrackCollectionBall(db)
+        player_collection = TrackCollectionPlayer(db)
 
         print("Transformando posiciones en registros...")
         try:
-            all_records = records.get_all()
-            for record in all_records:
-                pos_adj = getattr(record, "position_adjusted", None)
-                if not pos_adj:
-                    continue
-
-                px, py = float(pos_adj[0]), float(pos_adj[1])
-                transformed = self.transform_point(np.array([px, py], dtype=np.float32))
-
-                # Persiste solo el campo transformado
-                records.patch(
-                    record.id,
-                    {"position_transformed": transformed}
-                )
+            ball_records = ball_collection.get_all()
+            player_records = player_collection.get_all()
+            if len(ball_records) == 0 and len(player_records) == 0:
+                print("No hay registros para transformar.")
+                return
+            
+            if len(ball_records) == len(player_records):
+                self.transform_both_records(ball_records, player_records, db)
+                return    
+            if len(ball_records) > 0:
+                self.transform_ball_records(ball_records, db)
+                return
+            if len(player_records) > 0:
+                self.transform_player_records(player_records, db)
+                return
+            print("No hay registros para transformar.")
         except Exception as e:
             print(f"Error transformando posiciones en records: {e}")
+            raise e
+
+    def transform_ball_records(self, ball_records, db: Session):
+        """
+        Transforma la posición del balón en cada frame.
+        Luego de una lista de objetos BallEventModel y una sesión de base de datos,
+        transforma la posición del balón en cada frame.
+        Si hay un error al momento de transformar, se imprime el error y se
+        lanza una excepción.
+        """
+        try:
+            for br in ball_records:
+                self.calculate_ball_transformed_position(br, db)
+        except Exception as e:
+            print(f"Error transformando posiciones en ball records: {e}")
+            raise e
+
+    def transform_player_records(self, player_records, db: Session):
+        """
+        Transforma la posición de los jugadores en cada frame.
+        Luego de una lista de objetos PlayerStateModel y una sesión de base de datos,
+        transforma la posición de los jugadores en cada frame.
+        Si hay un error al momento de transformar, se imprime el error y se
+        lanza una excepción.
+        """
+        try:
+            for pr in player_records:
+                self.calculate_player_transformed_position(pr, db)
+        except Exception as e:
+            print(f"Error transformando posiciones en player records: {e}")
+            raise e
+
+    def transform_both_records(self, ball_records, player_records, db: Session):
+        """
+        Transforma la posición del balón y los jugadores en cada frame.
+        Luego de una lista de objetos BallEventModel y una lista de objetos PlayerStateModel
+        y una sesión de base de datos, transforma la posición del balón y los
+        jugadores en cada frame.
+        Si hay un error al momento de transformar, se imprime el error y se
+        lanza una excepción.
+        """
+        try:
+            for br, pr in zip(ball_records, player_records):
+                self.calculate_ball_transformed_position(br, db)
+                self.calculate_player_transformed_position(pr, db)
+        except Exception as e:
+            print(f"Error transformando posiciones en records: {e}")
+            raise e
+        
+    def calculate_ball_transformed_position(self, ball_record, db: Session):
+        """
+        Calcula la posición transformada del balón en un registro.
+        
+        Recibe un registro BallEventModel y una sesión de base de datos.
+        Transforma la posición del balón en el registro y la guarda en la base
+        de datos.
+        
+        Si hay un error al momento de transformar, se imprime el error y se
+        lanza una excepción.
+        """
+        try:
+            bx, by = ball_record.x, ball_record.y
+            if bx is None and by is None:
+                return
+            ball_transformed = self.transform_point(np.array([bx, by], dtype=np.float32))
+            if ball_transformed is None:
+                return
+            ball_collection = TrackCollectionBall(db)
+            ball_collection.patch(
+                ball_record.id,
+                {"x_transformed": ball_transformed[0],
+                "y_transformed": ball_transformed[1]}
+            )
+            return
+        except Exception as e:
+            print(f"Error calculando posición transformada del balón: {e}")
+            raise e
+
+    def calculate_player_transformed_position(self, player_record, db: Session):
+        """
+        Calcula la posición transformada del jugador en un registro.
+        
+        Recibe un registro PlayerStateModel y una sesión de base de datos.
+        Transforma la posición del usuario en el registro y la guarda en la base
+        de datos.
+        
+        Si hay un error al momento de transformar, se imprime el error y se
+        lanza una excepción.
+        """
+        try:
+            px, py = player_record.x, player_record.y
+            if px is None and py is None:
+                return
+            player_transformed = self.transform_point(np.array([px, py], dtype=np.float32))
+            if player_transformed is None:
+                return
+            player_collection = TrackCollectionPlayer(db)
+            player_collection.patch(
+                player_record.id,
+                {"x_transformed": player_transformed[0],
+                "y_transformed": player_transformed[1]}
+            )
+            return
+        except Exception as e:
+            print(f"Error calculando posición transformada del jugador: {e}")
             raise e

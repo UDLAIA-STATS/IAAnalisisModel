@@ -119,7 +119,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
         print("Procesando frame en el tracker...")
         for collection in (player_records, ball_records):
             print("Obteniendo tracks de objetos...")
-            tracker.get_object_tracks(frame, frame_num, collection)
+            tracker.get_object_tracks(frame, frame_num, db)
 
             print("Actualizando último track...")
             last_track = collection.get_last(db)
@@ -136,7 +136,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             # Aplicar compensación de movimiento de cámara
             print("Ajustando posiciones según movimiento de cámara...")
             camera_movement_estimator.add_adjust_positions_to_tracks(
-                collection=collection,
+                db=db,
                 camera_movement_per_frame=camera_movement,
                 track=last_track
             )
@@ -144,7 +144,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
             # Homografía al campo 2D
             print("Aplicando transformación de vista...")
-            view_transformer.add_transformed_positions(collection)
+            view_transformer.add_transformed_positions(db)
             print("Transformación aplicada.")
 
         # -------------------------------------------------------

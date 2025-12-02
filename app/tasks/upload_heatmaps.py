@@ -2,7 +2,7 @@ import asyncio
 import pathlib
 from app.entities.models import PlayerStateModel
 from sqlalchemy.orm import Session
-from app.tasks.upload import upload_heatmap
+from app.tasks.upload import upload_video_file
 from app.utils.routes import OUTPUT_VIDEOS_DIR
 
 async def upload_heatmaps_for_extracted_players(db: Session, match_id: int, extracted_player_ids: set):
@@ -24,7 +24,7 @@ async def upload_heatmaps_for_extracted_players(db: Session, match_id: int, extr
                 with open(home_file, "rb") as f:
                     file_bytes = f.read()
                 upload_tasks.append(
-                    upload_heatmap(
+                    upload_video_file(
                         match_id=match_id,
                         player_id=player_id,
                         filename=home_file.name,
@@ -38,7 +38,7 @@ async def upload_heatmaps_for_extracted_players(db: Session, match_id: int, extr
                 with open(rival_file, "rb") as f:
                     file_bytes = f.read()
                 upload_tasks.append(
-                    upload_heatmap(
+                    upload_video_file(
                         match_id=match_id,
                         player_id=player_id,
                         filename=rival_file.name,
