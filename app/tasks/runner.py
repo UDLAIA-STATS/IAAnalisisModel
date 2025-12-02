@@ -130,8 +130,8 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
             # Calcular centro y bbox inmediatamente
             print("Añadiendo posición al track...")
-            tracker.add_position_to_track(last_track)
-            print(f"Posición añadida: {last_track.position}")
+            tracker.add_position_to_track(db, last_track)
+            print(f"Posición añadida: ({last_track.x}, {last_track.y})")
 
             # Aplicar compensación de movimiento de cámara
             print("Ajustando posiciones según movimiento de cámara...")
@@ -162,15 +162,24 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
         print("Obteniendo métricas de detección del balón...")
         ball_frames = ball_records.get_all()
         print(f"Total frames con balón: {len(ball_frames)}")
-        detected = sum(1 for _, t in ball_frames if any(obj.bbox for obj in t.values()))
-        print(f"Frames con balón detectado: {detected}")
-        total = len(ball_frames)
-        print(f"Total frames: {total}")
+        if len(ball_frames) == 0:
+            continue
+        elif len(ball_frames) == 1:
+            metrics["ball_detection"] = {
+                "detected": 1,
+                "interpolated": 0,
+            }
+            continue
+        else:
+            detected = sum(1 for _, t in ball_frames if any(obj.bbox for obj in t.values()))
+            print(f"Frames con balón detectado: {detected}")
+            total = len(ball_frames)
+            print(f"Total frames: {total}")
 
-        metrics["ball_detection"] = {
-            "detected": detected,
-            "interpolated": total - detected,
-        }
+            metrics["ball_detection"] = {
+                "detected": detected,
+                "interpolated": total - detected,
+            }
 
         # -------------------------------------------------------
         # 5. ESTIMAR VELOCIDAD/DISTANCIA DEL ÚLTIMO JUGADOR
@@ -181,7 +190,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             print(f"Último jugador: {last_player.player_id}")
             speed_and_distance.process_track(
                 frame_num=frame_num,
-                track_id=last_player.track_id,
+                track_id=last_player.player_id,
                 track=last_player,
                 db=db,
                 model_class=PlayerStateModel,
@@ -217,7 +226,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
             # -----------------------------
             # ASIGNACIÓN A JUGADOR
-            # -----------------------------
+            # -----------------------------[ERROR procesando video]
             print("Asignando balón a jugador...")
             assigned_player_id = player_assigner.assign_ball_to_player(
                 ball_bbox,

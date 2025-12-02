@@ -98,7 +98,11 @@ class SpeedAndDistanceEstimator(metaclass=Singleton):
             None
         """
         try:
-            pos = track.position  # Debe ser np.array([x,y]) después de homografía
+            x = track.x
+            y = track.y 
+            if x is None or y is None:
+                return
+            pos = np.array([x, y])  # Debe ser np.array([x,y]) después de homografía
             print(f"Procesando track {track_id} en frame {frame_num} con posición {pos}")
             # Inicializar buffers
             if track_id not in self.position_history:
@@ -171,7 +175,7 @@ class SpeedAndDistanceEstimator(metaclass=Singleton):
 
             # Persistencia
             obj = model_class(
-                track_id=track_id,
+                player_id=track_id,
                 frame_index=frame_num,
                 x_smoothed=float(smoothed_pos[0]),
                 y_smoothed=float(smoothed_pos[1]),

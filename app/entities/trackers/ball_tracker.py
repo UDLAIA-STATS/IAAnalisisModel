@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import override
 
@@ -89,11 +90,13 @@ class BallTracker(Tracker):
             return
 
         cx, cy = self._bbox_to_center(ball_bbox)
+        print("Bbox balón ", ball_bbox, f"centro ({cx}, {cy})")
         payload = {
             "frame_index": int(frame_num),
             "x": float(cx),
             "y": float(cy),
             "z": 0.0,
+            "bbox": json.dumps(ball_bbox),
             "owner_id": None
         }
 

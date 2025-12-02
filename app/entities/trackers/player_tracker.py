@@ -100,6 +100,7 @@ class PlayerTracker(Tracker):
                 bbox_list = list(map(float, bbox_arr))
 
             cx, cy = self._bbox_to_center(bbox_list)
+            print("Bbox jugador ", track_id, bbox_list, f"centro ({cx}, {cy})")
             payload = {
                 "player_id": track_id,
                 "frame_index": int(frame_num),

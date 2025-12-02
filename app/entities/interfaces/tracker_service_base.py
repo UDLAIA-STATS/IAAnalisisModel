@@ -8,6 +8,7 @@ import torch
 from ultralytics.models import YOLO
 
 
+from app.entities.collections.track_collections import TrackCollectionBall, TrackCollectionPlayer
 from app.entities.interfaces.record_collection_base import RecordCollectionBase
 from app.entities.interfaces.tracker_base import Tracker
 from app.entities.models.BallState import BallEventModel
@@ -130,13 +131,42 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
     def get_trackers(self) -> List:
         return list(self.tracker_factory.get_trackers().values())
 
-    def add_position_to_track(self, track_detail: PlayerStateModel | BallEventModel) -> PlayerStateModel | BallEventModel:
+    def add_position_to_track(self, db: Session, track: PlayerStateModel | BallEventModel) -> None:
         try:
-            bbox = track_detail.get_bbox()
+            bbox = track.get_bbox()
+            print("Bbox del track ", track.id, ": ", bbox)
+
+            if bbox is None:
+                return
+
             position = get_center_of_bbox(bbox)
-            track_detail.position = position
-            return track_detail
+            if isinstance(track, PlayerStateModel):
+                self.add_to_player(db, track, position)
+            elif isinstance(track, BallEventModel):
+                self.add_to_ball(db, track, position)
         except Exception as e:
-            logging.exception(f"Error adding position to track {track_detail}: {e}")
-            print(f"Error adding position to track {track_detail}: {e}")
-            return track_detail
+            logging.exception(f"Error adding position to track {track}: {e}")
+            print(f"Error adding position to track {track}: {e}")
+            raise e
+
+    def add_to_ball(self, db: Session, track: BallEventModel, position: tuple[float, float]) -> None:
+        try:
+            collection = TrackCollectionBall(db)
+            collection.patch(
+                int(f'{track.id}'),
+                {'x': position[0], 'y': position[1]})
+        except Exception as e:
+            logging.exception(f"Error adding to player {track}: {e}")
+            print(f"Error adding to player {track}: {e}")
+            raise e
+    
+    def add_to_player(self, db: Session, track: PlayerStateModel, position: tuple[float, float]) -> None:
+        try:
+            collection = TrackCollectionPlayer(db)
+            collection.patch(
+                int(f'{track.id}'),
+                {'x': position[0], 'y': position[1]})
+        except Exception as e:
+            logging.exception(f"Error adding to player {track}: {e}")
+            print(f"Error adding to player {track}: {e}")
+            raise e

@@ -26,12 +26,12 @@ class BallEventModel(Base):
 
     def get_bbox(self):
         """Convierte JSON almacenado → lista Python"""
-        bbox = self.to_dict()
-        if bbox["bbox"] is None:
+        if self.bbox is None:
             return None
 
         try:
-            return json.loads(bbox["bbox"])
+            bbox = f'{self.bbox}'
+            return json.loads(bbox)
         except Exception:
             return None
     

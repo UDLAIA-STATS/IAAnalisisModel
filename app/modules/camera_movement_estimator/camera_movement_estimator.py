@@ -118,26 +118,44 @@ class CameraMovementEstimator(metaclass=Singleton):
         """
         try:
             tracks_collection = None
+            print(f"Ajustando posición del track {track.id} con movimiento de cámara {camera_movement_per_frame}.")
             dx, dy = camera_movement_per_frame
+            if dx is None or dy is None:
+                print("Movimiento de cámara no definido, no se aplica ajuste.")
+                return
+            print(f"Movimiento de cámara: dx={dx}, dy={dy}")
             x, y = track.x, track.y
+            if x is None or y is None:
+                print("Posición del track no definida, no se aplica ajuste.")
+                return
+            print(f"Posición actual: x={x}, y={y}")
             position_adjusted = (x - dx, y - dy)
+            if position_adjusted[0] is None or position_adjusted[1] is None:
+                print("Posición ajustada inválida, no se aplica ajuste.")
+                return
+            print(f"Posición ajustada: x={position_adjusted[0]}, y={position_adjusted[1]}")
 
             updates = {
                 "x": position_adjusted[0],
                 "y": position_adjusted[1]
             }
-            
+            print(f"Actualizaciones a aplicar: {updates}")
+
             if isinstance(track, PlayerStateModel):
                 from app.entities.collections import TrackCollectionPlayer
+                print("Usando TrackCollectionPlayer para actualizar el track.")
                 tracks_collection = TrackCollectionPlayer(db)
             elif isinstance(track, BallEventModel):
                 from app.entities.collections import TrackCollectionBall
+                print("Usando TrackCollectionBall para actualizar el track.")
                 tracks_collection = TrackCollectionBall(db)
             
             if not tracks_collection:
                 raise ValueError("tracks_collection no pudo ser determinado.")
             
+            print(f"Actualizando track ID {track.id} en la base de datos.")
             tracks_collection.patch(int(f'{track.id}'), updates)
+            print(f"Posición del track {track.id} ajustada correctamente.")
 
         except Exception as e:
             print(f"Error ajustando posición del track {track}: {e}")
