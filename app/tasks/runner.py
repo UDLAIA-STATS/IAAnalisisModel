@@ -1,6 +1,7 @@
 from multiprocessing import process
 import time
 import tracemalloc
+from typing import List
 
 from app.entities.collections import TrackCollectionBall, TrackCollectionPlayer 
 from app.entities.models import BallEventModel, PlayerStateModel
@@ -23,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.tasks.upload_heatmaps import upload_heatmaps_for_extracted_players
 from app.utils.routes import INPUT_VIDEOS_DIR, MODELS_DIR, OUTPUT_IMAGES_DIR
+from cv2.typing import MatLike
 
 
 async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
@@ -96,7 +98,8 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
     # FRAME INICIAL PARA CAMERA MOVEMENT
     # -----------------------------
     try:
-        first_frame, _ = next(video_stream)
+        first_batch, _ = next(video_stream)
+        first_frame = first_batch[0]
     except StopIteration:
         print("Error: Video is empty")
         return
@@ -107,23 +110,25 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
     # ==========================================================================
     #                               LOOP PRINCIPAL
     # ==========================================================================
-    process_frame(
-        frame_num=frame_num,
-        video_stream=video_stream,
-        db=db,
-        tracker=tracker,
-        player_records=player_records,
-        ball_records=ball_records,
-        camera_movement_estimator=camera_movement_estimator,
-        view_transformer=view_transformer,
-        speed_and_distance=speed_and_distance,
-        team_assigner=team_assigner,
-        player_assigner=player_assigner,
-        metrics=metrics,
-        images_per_player=images_per_player,
-        player_image_counts=player_image_counts,
-        last_frame_taken=last_frame_taken,
-    )
+    
+    for batch in video_stream:
+        process_frame(
+            video_stream=batch,
+            frame_num=frame_num,
+            db=db,
+            tracker=tracker,
+            player_records=player_records,
+            ball_records=ball_records,
+            camera_movement_estimator=camera_movement_estimator,
+            view_transformer=view_transformer,
+            speed_and_distance=speed_and_distance,
+            team_assigner=team_assigner,
+            player_assigner=player_assigner,
+            metrics=metrics,
+            images_per_player=images_per_player,
+            player_image_counts=player_image_counts,
+            last_frame_taken=last_frame_taken,
+        )
 
     extracted_player_ids = set(player_image_counts.keys())
     print(f"Jugadores con imágenes extraídas {extracted_player_ids}")
@@ -146,7 +151,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
 def process_frame(
     frame_num: int,
-    video_stream,
+    video_stream: List[tuple[MatLike, float]],
     db: Session,
     tracker: TrackerService,
     player_records: TrackCollectionPlayer,

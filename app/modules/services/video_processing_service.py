@@ -1,4 +1,5 @@
 import pathlib
+import time
 from typing import Generator, List
 
 import cv2
@@ -8,42 +9,39 @@ from app.entities.interfaces.record_collection_base import RecordCollectionBase
 from app.entities.models import PlayerStateModel
 
 
-def read_video(video_path: str, target_width: int = 640, sample_rate=1) -> Generator[tuple[MatLike, float]]:
+def read_video(video_path: str, batch_size: int = 16) -> Generator[List[tuple[MatLike, float]]]:
     try:
         print(f"Abriendo video para lectura: {video_path}...")
         cap = cv2.VideoCapture(video_path)
-
         if not cap.isOpened():
             raise FileNotFoundError(f"No se pudo abrir el video: {video_path}")
-
-        print(f"Video abierto correctamente.")
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        print(f"FPS del video: {fps}")
+        
+        batch = []
+        last_time = time.time()
         frame_count = 0
-        dt = 1.0 / fps
 
         while True:
+            frame_count += 1
             print(f"Leyendo frame {frame_count + 1}...")
             ret, frame = cap.read()
             print(f"Frame leído: {'sí' if ret else 'no'}")
             if not ret or not frame.any():
                 break
+            now = time.time()
+            dt = now - last_time
+            last_time = now
             
-            frame_count += 1
-            if sample_rate > 1 and (frame_count % sample_rate) != 0:
-                continue
-
             if not frame.any():
-                print(f"Frame {frame_count} vacío, saltando...")
+                print("Frame vacío detectado, saltando...")
                 continue
+            batch.append((frame, dt))
+            
+            if len(batch) >= batch_size:
+                yield batch
+                batch = []
 
-            h, w = frame.shape[:2]
-            if w != target_width:
-                print(f"Redimensionando frame {frame_count}...")
-                scale = target_width / float(w)
-                new_h = int(h * scale)
-                frame = cv2.resize(frame, (target_width, new_h))
-            yield frame, dt
+        if batch:
+            yield batch
         cap.release()
     except Exception as e:
         print(f"Error leyendo el video {video_path}: {e}")
