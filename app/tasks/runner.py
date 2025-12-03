@@ -1,3 +1,4 @@
+from multiprocessing import process
 import time
 import tracemalloc
 
@@ -101,12 +102,69 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
         return
 
     camera_movement_estimator = CameraMovementEstimator(first_frame)
+    frame_num = 0
 
     # ==========================================================================
     #                               LOOP PRINCIPAL
     # ==========================================================================
-    for frame_num, (frame, dt) in enumerate(video_stream):
+    process_frame(
+        frame_num=frame_num,
+        video_stream=video_stream,
+        db=db,
+        tracker=tracker,
+        player_records=player_records,
+        ball_records=ball_records,
+        camera_movement_estimator=camera_movement_estimator,
+        view_transformer=view_transformer,
+        speed_and_distance=speed_and_distance,
+        team_assigner=team_assigner,
+        player_assigner=player_assigner,
+        metrics=metrics,
+        images_per_player=images_per_player,
+        player_image_counts=player_image_counts,
+        last_frame_taken=last_frame_taken,
+    )
 
+    extracted_player_ids = set(player_image_counts.keys())
+    print(f"Jugadores con imágenes extraídas {extracted_player_ids}")
+
+    generate_diagrams(db)
+    print("Diagramas generados.")
+    await upload_heatmaps_for_extracted_players(db=db, match_id=match_id, extracted_player_ids=extracted_player_ids)
+    print("Heatmaps subidos.")
+
+    total_time = time.time() - start_time
+
+    print("\n" + "=" * 50)
+    print("        RESUMEN FINAL DEL PROCESAMIENTO")
+    print("=" * 50)
+    print(f"Tiempo total: {total_time/60:.2f} min")
+    print(f"Memoria máxima usada: {max(metrics['memory_usage']):.2f} MB")
+    print(f"Frames balón detectado: {metrics['ball_detection']['detected']}")
+    print(f"Frames balón interpolado: {metrics['ball_detection']['interpolated']}")
+
+
+def process_frame(
+    frame_num: int,
+    video_stream,
+    db: Session,
+    tracker: TrackerService,
+    player_records: TrackCollectionPlayer,
+    ball_records: TrackCollectionBall,
+    camera_movement_estimator: CameraMovementEstimator,
+    view_transformer: ViewTransformer,
+    speed_and_distance: SpeedAndDistanceEstimator,
+    team_assigner: TeamAssigner,
+    player_assigner: PlayerBallAssigner,
+    metrics: dict,
+    images_per_player: int,
+    player_image_counts: dict,
+    last_frame_taken: dict,  
+): 
+    for frame, dt in video_stream:
+        frame_num += 1
+        print(f"\n{'='*20} Procesando frame {frame_num} {'='*20}\n")
+        print(f"Tiempo desde último frame: {dt:.4f} segundos")
         # -------------------------------------------------------
         # 1. Estimar movimiento de cámara
         # -------------------------------------------------------
@@ -146,7 +204,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             print("Aplicando transformación de vista...")
             view_transformer.add_transformed_positions(db)
             print("Transformación aplicada.")
-
+        
         # -------------------------------------------------------
         # 3. VALIDAR QUE EL TRACKER DE BALÓN ES CORRECTO
         # -------------------------------------------------------
@@ -280,27 +338,11 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             
             if all(count >= images_per_player for count in player_image_counts.values()):
                 last_frame_taken.clear() 
+            
+            print(f"Frame procesado. {frame_num}")
         
         snapshot = tracemalloc.take_snapshot()
         total_mem = sum(stat.size for stat in snapshot.statistics("lineno")) / (1024 * 1024)
 
         if not metrics["memory_usage"]:
             metrics["memory_usage"].append(total_mem)
-
-    extracted_player_ids = set(player_image_counts.keys())
-    print(f"Jugadores con imágenes extraídas {extracted_player_ids}")
-
-    generate_diagrams(db)
-    print("Diagramas generados.")
-    await upload_heatmaps_for_extracted_players(db=db, match_id=match_id, extracted_player_ids=extracted_player_ids)
-    print("Heatmaps subidos.")
-
-    total_time = time.time() - start_time
-
-    print("\n" + "=" * 50)
-    print("        RESUMEN FINAL DEL PROCESAMIENTO")
-    print("=" * 50)
-    print(f"Tiempo total: {total_time/60:.2f} min")
-    print(f"Memoria máxima usada: {max(metrics['memory_usage']):.2f} MB")
-    print(f"Frames balón detectado: {metrics['ball_detection']['detected']}")
-    print(f"Frames balón interpolado: {metrics['ball_detection']['interpolated']}")
