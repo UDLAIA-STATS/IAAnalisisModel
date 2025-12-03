@@ -114,11 +114,26 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
     # ==========================================================================
     #                               LOOP PRINCIPAL
     # ==========================================================================
-    
+    empty_batches = 0
+    max_empty_batches = 10
+    max_processing_time = 1800 # 30 minutos por Debug
     for batch in video_stream:
+        if not batch or len(batch) == 0:
+            empty_batches += 1
+            if empty_batches >= max_empty_batches:
+                print("Múltiples batches vacíos consecutivos, finalizando procesamiento.")
+                break
+            continue
+
+        empty_batches = 0
+
+        if time.time() - start_time > max_processing_time:
+            print("Tiempo de procesamiento excedido, finalizando.")
+            break
+
         print(f"\n{'#'*60}\nProcesando batch de {len(batch)} frames...\n{'#'*60}\n")
         frame_num = process_frame(
-            video_stream=batch,
+            video_batch=batch,
             frame_num=frame_num,
             db=db,
             tracker=tracker,
@@ -157,7 +172,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
 def process_frame(
     frame_num: int,
-    video_stream: List[tuple[MatLike, float]],
+    video_batch: List[tuple[MatLike, float]],
     db: Session,
     tracker: TrackerService,
     player_records: TrackCollectionPlayer,
@@ -172,7 +187,7 @@ def process_frame(
     player_image_counts: dict,
     last_frame_taken: dict,  
 ): 
-    for frame, dt in video_stream:
+    for frame, dt in video_batch:
         frame_num += 1
         print(f"\n{'='*20} Procesando frame {frame_num} {'='*20}\n")
         print(f"Tiempo desde último frame: {dt:.4f} segundos")

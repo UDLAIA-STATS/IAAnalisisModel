@@ -10,49 +10,46 @@ from app.entities.models import PlayerStateModel
 
 
 def read_video(video_path: str, batch_size: int = 16) -> Generator[List[tuple[MatLike, float]]]:
+    print(f"Abriendo video para lectura: {video_path}...")
+    cap = cv2.VideoCapture(video_path)
     try:
-        print(f"Abriendo video para lectura: {video_path}...")
-        cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise FileNotFoundError(f"No se pudo abrir el video: {video_path}")
         
-        batch = []
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         last_time = time.time()
         frame_count = 0
 
-        while True:
-            frame_count += 1
-            print(f"Leyendo frame {frame_count + 1}...")
-            ret, frame = cap.read()
-            print(f"Frame leído: {'sí' if ret else 'no'}")
-            if not ret or not frame.any():
-                break
-            print("Frame válido obtenido.")
+        while frame_count < total_frames:
+            batch = []
             now = time.time()
             dt = now - last_time
             last_time = now
-            print(f"Tiempo desde último frame: {dt:.4f} segundos")
-            if not frame.any():
-                print("Frame vacío detectado, saltando...")
-                continue
-            batch.append((frame, dt))
+
+            for _ in range(batch_size):
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                print("Frame válido obtenido.")
+                frame_count += 1
+                print(f"Leyendo frame {frame_count + 1}...")
+                print(f"Frame leído: {'sí' if ret else 'no'}")
+                batch.append((frame, dt))
+                print(f"Tiempo desde último frame: {dt:.4f} segundos")
+                
+                if frame_count >= total_frames:
+                    break
+            
             print(f"Tamaño del batch actual: {len(batch)}")
-
-            if len(batch) >= batch_size:
-                print(f"Rindiendo batch de tamaño {batch_size}...")
+            if batch:
                 yield batch
-                batch = []
-            print("Continuando con el siguiente frame...")
-
-        if batch:
-            print(f"Rindiendo último batch de tamaño {len(batch)}...")
-            yield batch
-        print("Finalizando lectura de video.")
-        cap.release()
+            else:
+                break
     except Exception as e:
         print(f"Error leyendo el video {video_path}: {e}")
         raise e
-
+    finally:
+        cap.release()
 
 def extract_player_images(
     frame: MatLike,
