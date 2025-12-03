@@ -132,7 +132,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             break
 
         print(f"\n{'#'*60}\nProcesando batch de {len(batch)} frames...\n{'#'*60}\n")
-        frame_num = process_frame(
+        frame_num, player_image_counts, metrics = process_frame(
             video_batch=batch,
             frame_num=frame_num,
             db=db,
@@ -372,4 +372,4 @@ def process_frame(
 
         if not metrics["memory_usage"]:
             metrics["memory_usage"].append(total_mem)
-    return frame_num
+    return frame_num, player_image_counts, metrics

@@ -23,6 +23,7 @@ dependencies = [
     "scikit-learn>=1.7.1",
     "sqlalchemy>=2.0.44",
     "supervision>=0.26.1",
+    "tenacity>=9.1.2",
     "torchmetrics>=1.8.0",
     "ultralytics>=8.3.170",
 ]

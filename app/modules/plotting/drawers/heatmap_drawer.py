@@ -24,10 +24,9 @@ class HeatmapDrawer(Diagram):
 
         base = OUTPUT_VIDEOS_DIR
         self.save_path = base
-        self.rival_players_path = base / "rival_players"
-        self.home_players_path = base / "home_players"
+        self.players_path = base / "players"
 
-        for p in [base, self.rival_players_path, self.home_players_path]:
+        for p in [base, self.players_path]:
             p.mkdir(parents=True, exist_ok=True)
 
     # ---------------------------------------------------------
@@ -187,7 +186,7 @@ class HeatmapDrawer(Diagram):
                 levels=levels,
                 bw_adjust=0.3,
             )
-            fig.savefig(self.home_players_path / f"heatmap_player_home_{pid}.png",
+            fig.savefig(self.players_path / f"heatmap_player_{pid}.png",
                         dpi=300, bbox_inches="tight")
 
         # RIVAL
@@ -203,7 +202,7 @@ class HeatmapDrawer(Diagram):
                 levels=levels,
                 bw_adjust=0.3,
             )
-            fig.savefig(self.rival_players_path / f"heatmap_player_rival_{pid}.png",
+            fig.savefig(self.players_path / f"heatmap_player_{pid}.png",
                         dpi=300, bbox_inches="tight")
 
         plt.close(fig)

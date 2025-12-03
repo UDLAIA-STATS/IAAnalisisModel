@@ -3,6 +3,7 @@ from io import BytesIO
 import boto3
 from decouple import config
 from botocore.client import Config
+from tenacity import retry, stop_after_attempt, wait_exponential, wait_fixed
 
 s3_client = boto3.client(
     "s3",
@@ -13,7 +14,7 @@ s3_client = boto3.client(
     config=Config(signature_version="s3v4")
 )
 
-def upload_video_file(
+def upload_file(
     match_id: int,
     player_id: str,
     filename: str,
@@ -23,13 +24,16 @@ def upload_video_file(
     key = f"player_{player_id}_match_{match_id}/{timestamp}_{filename}"
     upload(key, file_bytes)
 
-def upload(key: str, file_bytes: bytes):
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10))
+def upload(key: str, file_bytes: bytes, file_type: str = "image/png"):
     try:
         s3_client.upload_fileobj(
             Fileobj=BytesIO(file_bytes),
             Bucket=config("R2_BUCKET"),
             Key=key,
-            ExtraArgs={"ContentType": "video/mp4"}
+            ExtraArgs={"ContentType": file_type}
         )
 
         print("Archivo subido correctamente:", key)

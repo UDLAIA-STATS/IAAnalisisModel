@@ -2,7 +2,7 @@ import asyncio
 import pathlib
 from app.entities.models import PlayerStateModel
 from sqlalchemy.orm import Session
-from app.tasks.upload import upload_video_file
+from app.tasks.upload import upload_file
 from app.utils.routes import OUTPUT_VIDEOS_DIR
 
 async def upload_heatmaps_for_extracted_players(db: Session, match_id: int, extracted_player_ids: set):
@@ -12,39 +12,45 @@ async def upload_heatmaps_for_extracted_players(db: Session, match_id: int, extr
     """
     try:
         base_path = OUTPUT_VIDEOS_DIR
-        home_path = base_path / "home_players"
-        rival_path = base_path / "rival_players"
+        players_path = base_path / "players"
 
         upload_tasks = []
+        upload_count = 0
+        error_count = 0
+
+        if not extracted_player_ids:
+            print("No hay jugadores extraídos para subir heatmaps.")
+            return
 
         for player_id in extracted_player_ids:
-            # Archivos HOME
-            home_file = home_path / f"heatmap_player_home_{player_id}.png"
-            if home_file.exists():
+            try:
+                home_file = players_path / f"heatmap_player_{player_id}.png"
+                if not home_file.exists():
+                    print(f"No se encontró el heatmap para el jugador {player_id} en home_players.")
+                    error_count += 1
+                    continue
+                
+                if home_file.stat().st_size == 0:
+                    print(f"El heatmap para el jugador {player_id} en home_players está vacío.")
+                    error_count += 1
+                    continue
+
                 with open(home_file, "rb") as f:
                     file_bytes = f.read()
+
                 upload_tasks.append(
-                    upload_video_file(
+                    upload_file(
                         match_id=match_id,
                         player_id=player_id,
                         filename=home_file.name,
                         file_bytes=file_bytes
                     )
                 )
-
-            # Archivos RIVAL
-            rival_file = rival_path / f"heatmap_player_rival_{player_id}.png"
-            if rival_file.exists():
-                with open(rival_file, "rb") as f:
-                    file_bytes = f.read()
-                upload_tasks.append(
-                    upload_video_file(
-                        match_id=match_id,
-                        player_id=player_id,
-                        filename=rival_file.name,
-                        file_bytes=file_bytes
-                    )
-                )
+                home_file.unlink(missing_ok=True)
+                upload_count += 1
+            except Exception as e:
+                error_count += 1
+                print(f"Error preparando la subida del heatmap del jugador {player_id}: {e}")
 
         # Ejecutar todas las subidas concurrentemente
         results = []

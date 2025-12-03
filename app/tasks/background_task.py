@@ -93,4 +93,5 @@ async def export_data(db: Session, match_id: int):
     upload(
         key=key,
         file_bytes=file_bytes,
+        file_type="application/json"
     )

@@ -89,6 +89,8 @@ def extract_player_images(
         # Procesar solo records del frame actual
         record = player.to_dict()
         player_id = record.get("player_id", None)
+        player_team = record.get("team", "unknown")
+        player_color = record.get("color", "unknown")
         bbox = player.get_bbox()
 
         if bbox is None or len(bbox) != 4:
@@ -127,7 +129,7 @@ def extract_player_images(
             return player_image_counts, last_frame_taken
 
         # Guardar imagen
-        filename = folder / f"player_{player_id}_img_{count+1}_frame_{frame_index}.png"
+        filename = folder / f"player_{player_id}_team_{player_team}_color_{player_color}_img_{count+1}_frame_{frame_index}.png"
         cv2.imwrite(str(filename), crop)
         player_image_counts.update({player_id: count + 1})
         last_frame_taken.update({player_id: frame_index})
