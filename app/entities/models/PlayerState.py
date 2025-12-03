@@ -9,7 +9,7 @@ class PlayerStateModel(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Identidad del jugador
-    player_id = Column(Integer, index=True)
+    player_id = Column(Integer, index=True, nullable=False)
     team = Column(String)
     color = Column(String)
 

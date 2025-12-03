@@ -94,16 +94,20 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
     player_image_counts, last_frame_taken = {}, {}
 
-    # -----------------------------
-    # FRAME INICIAL PARA CAMERA MOVEMENT
-    # -----------------------------
+
+     # -----------------------------
+     # FRAME INICIAL PARA CAMERA MOVEMENT
+     # -----------------------------
     try:
-        first_batch, _ = next(video_stream)
-        first_frame = first_batch[0]
+        first_batch = next(video_stream)
+        first_frame, _ = first_batch[0]
     except StopIteration:
         print("Error: Video is empty")
         return
 
+    if not first_frame.any():
+        print("Error: First frame is empty")
+        return
     camera_movement_estimator = CameraMovementEstimator(first_frame)
     frame_num = 0
 
@@ -112,7 +116,8 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
     # ==========================================================================
     
     for batch in video_stream:
-        process_frame(
+        print(f"\n{'#'*60}\nProcesando batch de {len(batch)} frames...\n{'#'*60}\n")
+        frame_num = process_frame(
             video_stream=batch,
             frame_num=frame_num,
             db=db,
@@ -129,6 +134,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             player_image_counts=player_image_counts,
             last_frame_taken=last_frame_taken,
         )
+        print(f"Batch procesado. Frames hasta ahora: {frame_num + len(batch)}")
 
     extracted_player_ids = set(player_image_counts.keys())
     print(f"Jugadores con imágenes extraídas {extracted_player_ids}")
@@ -351,3 +357,4 @@ def process_frame(
 
         if not metrics["memory_usage"]:
             metrics["memory_usage"].append(total_mem)
+    return frame_num

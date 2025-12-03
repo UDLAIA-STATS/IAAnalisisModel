@@ -56,11 +56,16 @@ class RecordCollectionBase(metaclass=Singleton):
         return self.db.query(self.orm_model).all()
 
     def post(self, obj_data: dict):
-        obj = self.orm_model(**obj_data)
-        self.db.add(obj)
-        self.db.commit()
-        self.db.refresh(obj)
-        return obj
+        try:
+            obj = self.orm_model(**obj_data)
+            self.db.add(obj)
+            self.db.commit()
+            self.db.refresh(obj)
+            return obj
+        except Exception as e:
+            print(f"Error al crear registro: {e}")
+            self.db.rollback()
+            return None
 
     def patch(self, obj_id: int, updates: dict):
         obj = self.get(obj_id)

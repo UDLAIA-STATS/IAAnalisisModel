@@ -27,21 +27,27 @@ def read_video(video_path: str, batch_size: int = 16) -> Generator[List[tuple[Ma
             print(f"Frame leído: {'sí' if ret else 'no'}")
             if not ret or not frame.any():
                 break
+            print("Frame válido obtenido.")
             now = time.time()
             dt = now - last_time
             last_time = now
-            
+            print(f"Tiempo desde último frame: {dt:.4f} segundos")
             if not frame.any():
                 print("Frame vacío detectado, saltando...")
                 continue
             batch.append((frame, dt))
-            
+            print(f"Tamaño del batch actual: {len(batch)}")
+
             if len(batch) >= batch_size:
+                print(f"Rindiendo batch de tamaño {batch_size}...")
                 yield batch
                 batch = []
+            print("Continuando con el siguiente frame...")
 
         if batch:
+            print(f"Rindiendo último batch de tamaño {len(batch)}...")
             yield batch
+        print("Finalizando lectura de video.")
         cap.release()
     except Exception as e:
         print(f"Error leyendo el video {video_path}: {e}")

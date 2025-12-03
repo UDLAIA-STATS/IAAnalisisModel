@@ -18,7 +18,7 @@ class BallEventModel(Base):
     y_transformed = Column(Float, nullable=True)
     
     bbox = Column(String, nullable=True)
-    owner_id = Column(Integer)
+    owner_id = Column(Integer, index=True, nullable=True)
     
     def set_bbox(self, bbox_list: list[int]):
         """Convierte lista Python → string JSON seguro"""

@@ -50,7 +50,36 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
                     logging.warning(f"Could not enable half precision: {e}")
         return model
 
+    def __del__(self):
+        try:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                logging.info("CUDA cache cleared on TrackerServiceBase deletion.")
+        except Exception as e:
+            logging.error(f"Error during TrackerServiceBase deletion: {e}")
+            pass
 
+    def __enter__(self):
+        logging.info("Entering context: TrackerServiceBase")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            if hasattr(self, "model"):
+                del self.model
+            if hasattr(self, "tracker"):
+                del self.tracker
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+            logging.info("TrackerServiceBase resources released safely.")
+
+        except Exception as e:
+            logging.error(f"Error during context cleanup: {e}")
+
+        # No suprime excepciones
+        return False
 
     def reset_tracking(self) -> None:
         """
