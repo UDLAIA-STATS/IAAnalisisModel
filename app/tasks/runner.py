@@ -71,8 +71,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
     try:
         tracker = TrackerService(
-            model_path.as_posix(),
-            use_half_precision=True
+            model_path.as_posix()
         )
 
         # -----------------------------
@@ -116,7 +115,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
     # ==========================================================================
     empty_batches = 0
     max_empty_batches = 10
-    max_processing_time = 1800 # 30 minutos por Debug
+    max_processing_time = 3600 # 60 minutos por Debug
     for batch in video_stream:
         if not batch or len(batch) == 0:
             empty_batches += 1

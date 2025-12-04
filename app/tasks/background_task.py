@@ -4,6 +4,7 @@ import pathlib
 from sqlalchemy import create_engine
 
 from app.entities.collections.track_collections import TrackCollectionPlayer
+from app.entities.models.PlayerState import PlayerStateModel
 from app.modules.services.database import Base
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -43,41 +44,23 @@ async def process_run(db: Session, video_name: str, match_id: int, db_session_fa
         print(f"[ERROR procesando video]: {e}")
 
     
-async def export_data(db: Session, match_id: int):
-    exporter = TrackCollectionPlayer(db)
-    records = exporter.get_all()
+async def export_data(db: Session, match_id: int, max_records: int = 100000):
+    records = (db.query(PlayerStateModel)
+               .order_by(PlayerStateModel.id)
+               .limit(max_records)
+               .all())
+    
+    if not records:
+        print("No hay registros de PlayerState para exportar.")
+        return
 
-    export_data = [
-        {
-        "id": r.id,
-        "player_id": r.player_id,
-        "team": r.team,
-        "color": r.color,
-        "frame_index": r.frame_index,
-        "bbox": r.get_bbox(),
+    export_data = []
+    
+    for i, record in enumerate(records):
+        export_data.append(record.to_dict())
+        if (i + 1 ) % 1000 == 0:
+            print(f"Exportados {i + 1} registros de PlayerState...")
 
-        "x": r.x,
-        "y": r.y,
-        "z": r.z,
-
-        "ball_x": r.ball_x,
-        "ball_y": r.ball_y,
-        "ball_z": r.ball_z,
-        "has_ball": r.has_ball,
-        "ball_possession_time": r.ball_possession_time,
-        "ball_owner_id": r.ball_owner_id,
-
-        "distance": r.distance,
-        "incremental_distance": r.incremental_distance,
-        "speed": r.speed,
-        "acceleration": r.acceleration,
-        "is_sprint": r.is_sprint,
-
-        "time_visible": r.time_visible,
-        "timestamp_ms": r.timestamp_ms,
-        }
-        for r in records
-    ]
 
     out_dir = pathlib.Path("exports")
     out_dir.mkdir(exist_ok=True)

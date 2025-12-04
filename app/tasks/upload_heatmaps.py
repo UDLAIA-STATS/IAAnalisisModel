@@ -46,7 +46,6 @@ async def upload_heatmaps_for_extracted_players(db: Session, match_id: int, extr
                         file_bytes=file_bytes
                     )
                 )
-                home_file.unlink(missing_ok=True)
                 upload_count += 1
             except Exception as e:
                 error_count += 1
