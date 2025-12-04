@@ -33,7 +33,13 @@ class TrackerServiceBase(metaclass=AbstractSingleton):
     def __init__(self, model_path: str, use_half_precision: bool = False):
         from app.modules.trackers.tracker_factory import TrackerFactory
         self.model = self.__load_detector__(model_path, use_half_precision)
-        self.tracker = sv.ByteTrack()
+        self.tracker = sv.ByteTrack(
+            frame_rate=30,
+            lost_track_buffer=60,
+            track_activation_threshold=0.15,
+            minimum_matching_threshold=0.9,
+            minimum_consecutive_frames=3
+        )
         self.tracker_factory = TrackerFactory(self.model)
         self.tracker_path = "bytetrack.yaml"
         self._device = 'cuda' if torch.cuda.is_available() else 'cpu'

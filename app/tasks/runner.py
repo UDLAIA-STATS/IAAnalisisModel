@@ -1,7 +1,12 @@
+import json
 from multiprocessing import process
+from pathlib import Path
 import time
 import tracemalloc
+import logging
+from logging.handlers import RotatingFileHandler
 from typing import List
+from xml.sax import handler
 
 from app.entities.collections import TrackCollectionBall, TrackCollectionPlayer 
 from app.entities.models import BallEventModel, PlayerStateModel
@@ -23,9 +28,15 @@ from app.modules.view_transformer import ViewTransformer
 from sqlalchemy.orm import Session
 
 from app.tasks.upload_heatmaps import upload_heatmaps_for_extracted_players
-from app.utils.routes import INPUT_VIDEOS_DIR, MODELS_DIR, OUTPUT_IMAGES_DIR
+from app.utils.routes import INPUT_VIDEOS_DIR, MODELS_DIR, OUTPUT_IMAGES_DIR, OUTPUT_REPORTS_DIR
 from cv2.typing import MatLike
 
+logger = logging.getLogger("debug")
+logger.setLevel(logging.DEBUG)
+handler = RotatingFileHandler("debug.log", maxBytes=1000000, backupCount=5)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
 
@@ -143,7 +154,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             player_assigner=player_assigner,
             metrics=metrics,
             images_per_player=images_per_player,
-            saved_player_ids=saved_player_ids
+            saved_player_ids=saved_player_ids,
         )
         saved_player_ids.extend(updated_ids)
         metrics.update(updated_metrics)
@@ -181,7 +192,7 @@ def process_frame(
     player_assigner: PlayerBallAssigner,
     metrics: dict,
     images_per_player: int,
-    saved_player_ids: List[int]
+    saved_player_ids: List[int],
 ): 
     player_image_counts: dict = {}
     last_frame_taken: dict = {} 
@@ -201,6 +212,7 @@ def process_frame(
         print("Procesando frame en el tracker...")
         for collection in (player_records, ball_records):
             print("Obteniendo tracks de objetos...")
+            scale = camera_movement_estimator.get_current_scale()
             tracker.get_object_tracks(frame, frame_num, db)
 
             print("Actualizando último track...")
@@ -220,6 +232,7 @@ def process_frame(
             camera_movement_estimator.add_adjust_positions_to_tracks(
                 db=db,
                 camera_movement_per_frame=camera_movement,
+                scale=scale,
                 track=last_track
             )
             print("Posiciones ajustadas.")
@@ -368,7 +381,20 @@ def process_frame(
                 last_frame_taken.clear() 
             
             print(f"Frame procesado. {frame_num}")
-        
+
+            export_data = {
+                "frame_num": frame_num,
+                "frame_time": f'{dt:.4f} seconds',
+                "metrics": metrics,
+                "player_image_counts": player_image_counts,
+                "last_frame_taken": last_frame_taken,
+                "saved_player_ids": saved_player_ids,
+                "player_data": last_player.to_dict() if last_player else None,
+                "ball_data": ball_frames[-1][1] if ball_frames else None
+            }
+            logger.debug(json.dumps(export_data))
+            
+
         snapshot = tracemalloc.take_snapshot()
         total_mem = sum(stat.size for stat in snapshot.statistics("lineno")) / (1024 * 1024)
 

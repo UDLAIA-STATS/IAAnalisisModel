@@ -15,6 +15,7 @@ async def process_video_async(video_name: str, match_id: int):
     """
     Ejecuta el análisis en segundo plano con una BD en memoria aislada.
     """
+    print(f"Iniciando análisis en background para video: {video_name}, match_id: {match_id}")
     engine = create_engine("sqlite://", echo=False, connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -31,6 +32,7 @@ async def process_video_async(video_name: str, match_id: int):
     except Exception as e:
         print(f"Error en análisis: {str(e)}")
     finally:
+        print("Cerrando sesión de base de datos y liberando recursos.")
         db.close()
         engine.dispose()
 

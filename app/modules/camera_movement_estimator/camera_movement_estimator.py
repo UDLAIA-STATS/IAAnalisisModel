@@ -20,6 +20,10 @@ class CameraMovementEstimator(metaclass=Singleton):
 
     def __init__(self, first_frame: MatLike):
         self.minimum_distance = 5
+        self.accum_scale = 1.0
+        self.last_scale = 1.0
+        self.accum_dx = 0.0
+        self.accum_dy = 0.0
 
         self.lk_params = dict(
             winSize=(15, 15),
@@ -87,7 +91,7 @@ class CameraMovementEstimator(metaclass=Singleton):
             **self.lk_params # type: ignore
         )
 
-        dx, dy, dist = self.update_camera_distance(new_features, self.old_features)
+        dx, dy, dist, scale = self.update_camera_distance(new_features, self.old_features)
 
         # Threshold para considerar movimiento real
         if dist > self.minimum_distance:
@@ -96,13 +100,34 @@ class CameraMovementEstimator(metaclass=Singleton):
             )
 
         # Smoothing (EMA)
+        scale_smooth = (self.alpha * scale) + ((1 - self.alpha) * self.last_scale)
+        self.last_scale = scale_smooth
         dx_smooth = (self.alpha * dx) + ((1 - self.alpha) * self.last_dx)
         dy_smooth = (self.alpha * dy) + ((1 - self.alpha) * self.last_dy)
+
+        self.accum_dx += dx_smooth
+        self.accum_dy += dy_smooth
+        self.accum_scale *= scale_smooth
 
         self.last_dx, self.last_dy = dx_smooth, dy_smooth
         self.old_gray = frame_gray.copy()
 
         return dx_smooth, dy_smooth
+
+    def get_current_scale(self) -> float:
+        """
+        Returns the current scale of the camera movement estimation.
+
+        The current scale is calculated as the exponential moving average (EMA)
+        of the scale of the camera movement. This is useful for determining the
+        zoom level of the video.
+
+        Returns
+        -------
+        float
+            The current scale of the camera movement estimation
+        """
+        return self.accum_scale
 
     # -------------------------------------------------------------
     # APLICAR AJUSTE A TRACK
@@ -110,6 +135,7 @@ class CameraMovementEstimator(metaclass=Singleton):
     def add_adjust_positions_to_tracks(
         self,
         camera_movement_per_frame,
+        scale: float,
         track: PlayerStateModel | BallEventModel,
         db: Session
     ):
@@ -129,7 +155,12 @@ class CameraMovementEstimator(metaclass=Singleton):
                 print("Posición del track no definida, no se aplica ajuste.")
                 return
             print(f"Posición actual: x={x}, y={y}")
-            position_adjusted = (x - dx, y - dy)
+
+            adjusted_x = (x - dx) / scale
+            adjusted_y = (y - dy) / scale
+            position_adjusted = (adjusted_x, adjusted_y)
+            
+
             if position_adjusted[0] is None or position_adjusted[1] is None:
                 print("Posición ajustada inválida, no se aplica ajuste.")
                 return
@@ -166,25 +197,42 @@ class CameraMovementEstimator(metaclass=Singleton):
     # -------------------------------------------------------------
     def update_camera_distance(self, new_features, old_features):
         if new_features is None or old_features is None:
-            return 0.0, 0.0, 0.0
+            return 0.0, 0.0, 0.0, 1.0
 
         if len(new_features) != len(old_features) or len(new_features) == 0:
-            return 0.0, 0.0, 0.0
+            return 0.0, 0.0, 0.0, 1.0
+        
+        deltas = new_features - old_features
+        dx =  float(np.median(deltas[:, 0, 0]))
+        dy =  float(np.median(deltas[:, 0, 1]))
+        
+        src = old_features.reshape(-1, 2).astype(np.float32)
+        dst = new_features.reshape(-1, 2).astype(np.float32)
+        
+        M, _ = cv2.estimateAffinePartial2D(
+            src,
+            dst,
+            method=cv2.RANSAC,
+            ransacReprojThreshold=3)
+        
+        scale = np.sqrt(M[0,0]**2 + M[1,0]**2) if M is not None else 1.0
+        distance = np.sqrt(dx**2 + dy**2)
 
-        max_distance = 0.0
-        camera_movement_x = 0.0
-        camera_movement_y = 0.0
+        return dx, dy, distance, scale
+        # max_distance = 0.0
+        # camera_movement_x = 0.0
+        # camera_movement_y = 0.0
 
-        for new_feat, old_feat in zip(new_features, old_features):
-            new_point = new_feat.ravel()
-            old_point = old_feat.ravel()
+        # for new_feat, old_feat in zip(new_features, old_features):
+        #     new_point = new_feat.ravel()
+        #     old_point = old_feat.ravel()
 
-            diff = new_point - old_point
-            distance = np.linalg.norm(diff)
+        #     diff = new_point - old_point
+        #     distance = np.linalg.norm(diff)
 
-            if distance > max_distance:
-                max_distance = distance
-                camera_movement_x = float(diff[0])
-                camera_movement_y = float(diff[1])
+        #     if distance > max_distance:
+        #         max_distance = distance
+        #         camera_movement_x = float(diff[0])
+        #         camera_movement_y = float(diff[1])
 
-        return camera_movement_x, camera_movement_y, float(max_distance)
+        # return camera_movement_x, camera_movement_y, float(max_distance)

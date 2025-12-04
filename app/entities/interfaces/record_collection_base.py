@@ -57,28 +57,44 @@ class RecordCollectionBase(metaclass=Singleton):
 
     def post(self, obj_data: dict):
         try:
+            print(f"Creando nuevo registro con datos: {obj_data}")
             obj = self.orm_model(**obj_data)
             self.db.add(obj)
+            print(f"Objeto añadido a la sesión de la DB: {obj}")
             self.db.commit()
             self.db.refresh(obj)
+            print(f"Objeto refrescado: {obj}")
             return obj
         except Exception as e:
             print(f"Error al crear registro: {e}")
             self.db.rollback()
             return None
+        finally:
+            print(f'Elementos actuales en base de datos {self.orm_model.__name__}: ', len(self.get_all()))
 
     def patch(self, obj_id: int, updates: dict):
-        obj = self.get(obj_id)
-        if not obj:
+        try:
+            print(f"Actualizando registro ID {obj_id} con {updates}")
+            obj = self.get(obj_id)
+            if not obj:
+                print(f"Registro con ID {obj_id} no encontrado.")
+                return None
+
+            print(f"Objeto encontrado: {obj}")
+            for key, val in updates.items():
+                print(f"Actualizando campo {key} con valor {val}")
+                if hasattr(obj, key):
+                    setattr(obj, key, val)
+
+            self.db.commit()
+            print(f"Objeto actualizado: {obj}")
+            self.db.refresh(obj)
+            print(f"Objeto refrescado: {obj}")
+            return obj
+        except Exception as e:
+            print(f"Error al actualizar registro: {e}")
+            self.db.rollback()
             return None
-
-        for key, val in updates.items():
-            if hasattr(obj, key):
-                setattr(obj, key, val)
-
-        self.db.commit()
-        self.db.refresh(obj)
-        return obj
 
     def delete(self, obj_id: int) -> bool:
         obj = self.get(obj_id)
