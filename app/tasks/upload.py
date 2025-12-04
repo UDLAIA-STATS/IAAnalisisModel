@@ -31,7 +31,7 @@ def upload(key: str, file_bytes: bytes, file_type: str = "image/png"):
     try:
         s3_client.upload_fileobj(
             Fileobj=BytesIO(file_bytes),
-            Bucket=config("R2_BUCKET"),
+            Bucket=config("BUCKET"),
             Key=key,
             ExtraArgs={"ContentType": file_type}
         )

@@ -54,7 +54,7 @@ def read_video(video_path: str, batch_size: int = 16) -> Generator[List[tuple[Ma
 def extract_player_images(
     frame: MatLike,
     frame_index: int,
-    player,
+    player: PlayerStateModel,
     output_folder: str,
     player_image_counts: dict, 
     last_frame_taken: dict,
@@ -75,36 +75,48 @@ def extract_player_images(
     :param last_frame_taken: Mapa {player_id: ultimo_frame_guardado}
     """
     try:
+        print(f"Extrayendo imagen de jugador {player.to_dict().get('player_id', None)} en frame {frame_index}...")
         folder = pathlib.Path(output_folder)
         folder.mkdir(parents=True, exist_ok=True)
 
         if player_image_counts is None:
+            print("Inicializando player_image_counts...")
             player_image_counts = {}
 
         if last_frame_taken is None:
+            print("Inicializando last_frame_taken...")
             last_frame_taken = {}
 
+        print(f"Dimensiones del frame: {frame.shape}")
         h, w = frame.shape[:2]
 
         # Procesar solo records del frame actual
+        print("Procesando jugador:", player.to_dict())
         record = player.to_dict()
-        player_id = record.get("player_id", None)
+        player_id: int = int(record.get("player_id", -1))
         player_team = record.get("team", "unknown")
         player_color = record.get("color", "unknown")
         bbox = player.get_bbox()
+        
+        if player_id == -1:
+            print("Player ID inválido.")
+            return player_image_counts, last_frame_taken, None
 
         if bbox is None or len(bbox) != 4:
-            return player_image_counts, last_frame_taken
+            print("No hay bounding box para el jugador.")
+            return player_image_counts, last_frame_taken, None
 
         # Máximo por jugador
         count = player_image_counts.get(player_id, 0)
         if count >= images_per_player:
-            return player_image_counts, last_frame_taken
+            print("Máximo de imágenes alcanzado para el jugador.")
+            return player_image_counts, last_frame_taken, None
 
         # Saltar frames cercanos
         last_f = last_frame_taken.get(player_id, -frame_skip - 1)
         if frame_index - last_f < frame_skip:
-            return player_image_counts, last_frame_taken
+            print("Saltando frame por frame_skip.")
+            return player_image_counts, last_frame_taken, None
         
         h, w = frame.shape[:2]
 
@@ -117,24 +129,30 @@ def extract_player_images(
         y2 = max(0, min(y2, h - 1))
 
         if x2 <= x1 or y2 <= y1:
-            return player_image_counts, last_frame_taken
+            print("Bounding box inválido.")
+            return player_image_counts, last_frame_taken, None
 
         if (x2 - x1) < 10 or (y2 - y1) < 10:
-            return player_image_counts, last_frame_taken
+            print("Bounding box muy pequeño.")
+            return player_image_counts, last_frame_taken, None
         
         torso_y2 = y1 + int((y2 - y1) * 0.6)
         crop = frame[y1:torso_y2, x1:x2]
         
         if crop.size == 0:
-            return player_image_counts, last_frame_taken
+            print("Crop resultó en una imagen vacía.")
+            return player_image_counts, last_frame_taken, None
 
         # Guardar imagen
         filename = folder / f"player_{player_id}_team_{player_team}_color_{player_color}_img_{count+1}_frame_{frame_index}.png"
+        print(f"Guardando imagen en {filename}...")
         cv2.imwrite(str(filename), crop)
         player_image_counts.update({player_id: count + 1})
         last_frame_taken.update({player_id: frame_index})
 
-        return player_image_counts, last_frame_taken
+        print("Imagen guardada.")
+
+        return player_image_counts, last_frame_taken, player_id
     except Exception as e:
         print(f"Error extrayendo imagen de jugador { player.to_dict().get('player_id', None) } en frame {frame_index}: {e}")
         raise e

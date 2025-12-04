@@ -6,6 +6,10 @@ class TrackCollectionPlayer(RecordCollectionBase):
 
     def generate_id(self, obj):
         return obj.track_id
+    
+    def get_last(self, db):
+        return db.query(PlayerStateModel).order_by(self.orm_model.id.desc()).first()
+
 
 class TrackCollectionBall(RecordCollectionBase):
     orm_model = BallEventModel

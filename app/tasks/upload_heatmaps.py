@@ -1,5 +1,5 @@
 import asyncio
-import pathlib
+import random
 from app.entities.models import PlayerStateModel
 from sqlalchemy.orm import Session
 from app.tasks.upload import upload_file
@@ -13,35 +13,43 @@ async def upload_heatmaps_for_extracted_players(db: Session, match_id: int, extr
     try:
         base_path = OUTPUT_VIDEOS_DIR
         players_path = base_path / "players"
+        files_in_folder = list(players_path.glob("heatmap_player_*.png"))
+        print(f"Archivos encontrados en players: {[file.name for file in files_in_folder]}")
 
         upload_tasks = []
         upload_count = 0
         error_count = 0
+        
 
-        if not extracted_player_ids:
-            print("No hay jugadores extraídos para subir heatmaps.")
+        if not files_in_folder:
+            print("No se encontraron archivos de heatmaps en la carpeta de players.")
             return
 
-        for player_id in extracted_player_ids:
+        for file in files_in_folder:
             try:
-                home_file = players_path / f"heatmap_player_{player_id}.png"
+                home_file = players_path / file.name
                 if not home_file.exists():
-                    print(f"No se encontró el heatmap para el jugador {player_id} en home_players.")
+                    print(f"No se encontró el heatmap {file.name} para el jugador")
                     error_count += 1
                     continue
                 
                 if home_file.stat().st_size == 0:
-                    print(f"El heatmap para el jugador {player_id} en home_players está vacío.")
+                    print(f"El heatmap {file.name} en home_players está vacío.")
                     error_count += 1
                     continue
 
                 with open(home_file, "rb") as f:
                     file_bytes = f.read()
-
+                    
+                id_str = file.stem.split("heatmap_player_")[-1]
+                if not id_str.isdigit():
+                    id = random.randint(1000, 9999) # Por debug
+                else: 
+                    id = int(id_str)
                 upload_tasks.append(
                     upload_file(
                         match_id=match_id,
-                        player_id=player_id,
+                        player_id=str(id),
                         filename=home_file.name,
                         file_bytes=file_bytes
                     )
@@ -49,7 +57,7 @@ async def upload_heatmaps_for_extracted_players(db: Session, match_id: int, extr
                 upload_count += 1
             except Exception as e:
                 error_count += 1
-                print(f"Error preparando la subida del heatmap del jugador {player_id}: {e}")
+                print(f"Error preparando la subida del heatmap del jugador: {e}")
 
         # Ejecutar todas las subidas concurrentemente
         results = []

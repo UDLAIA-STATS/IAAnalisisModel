@@ -91,9 +91,6 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
         print(f"Error initializing services: {e}")
         raise e
 
-    player_image_counts, last_frame_taken = {}, {}
-
-
      # -----------------------------
      # FRAME INICIAL PARA CAMERA MOVEMENT
      # -----------------------------
@@ -115,7 +112,8 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
     # ==========================================================================
     empty_batches = 0
     max_empty_batches = 10
-    max_processing_time = 3600 # 60 minutos por Debug
+    max_processing_time = 1000 # 10 minutos por Debug
+    saved_player_ids: List[int] = []
     for batch in video_stream:
         if not batch or len(batch) == 0:
             empty_batches += 1
@@ -131,7 +129,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             break
 
         print(f"\n{'#'*60}\nProcesando batch de {len(batch)} frames...\n{'#'*60}\n")
-        frame_num, player_image_counts, metrics = process_frame(
+        frame_num, updated_ids, updated_metrics = process_frame(
             video_batch=batch,
             frame_num=frame_num,
             db=db,
@@ -145,17 +143,17 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
             player_assigner=player_assigner,
             metrics=metrics,
             images_per_player=images_per_player,
-            player_image_counts=player_image_counts,
-            last_frame_taken=last_frame_taken,
+            saved_player_ids=saved_player_ids
         )
+        saved_player_ids.extend(updated_ids)
+        metrics.update(updated_metrics)
         print(f"Batch procesado. Frames hasta ahora: {frame_num + len(batch)}")
 
-    extracted_player_ids = set(player_image_counts.keys())
-    print(f"Jugadores con imágenes extraídas {extracted_player_ids}")
+    print(f"Jugadores con imágenes extraídas {saved_player_ids}")
 
     generate_diagrams(db)
     print("Diagramas generados.")
-    await upload_heatmaps_for_extracted_players(db=db, match_id=match_id, extracted_player_ids=extracted_player_ids)
+    await upload_heatmaps_for_extracted_players(db=db, match_id=match_id, extracted_player_ids=set(saved_player_ids))
     print("Heatmaps subidos.")
 
     total_time = time.time() - start_time
@@ -164,7 +162,7 @@ async def run_analysis(db: Session, video_name: str, match_id: int) -> None:
     print("        RESUMEN FINAL DEL PROCESAMIENTO")
     print("=" * 50)
     print(f"Tiempo total: {total_time/60:.2f} min")
-    print(f"Memoria máxima usada: {max(metrics['memory_usage']):.2f} MB")
+    # print(f"Memoria máxima usada: {max(metrics['memory_usage']):.2f} MB")
     print(f"Frames balón detectado: {metrics['ball_detection']['detected']}")
     print(f"Frames balón interpolado: {metrics['ball_detection']['interpolated']}")
 
@@ -183,9 +181,10 @@ def process_frame(
     player_assigner: PlayerBallAssigner,
     metrics: dict,
     images_per_player: int,
-    player_image_counts: dict,
-    last_frame_taken: dict,  
+    saved_player_ids: List[int]
 ): 
+    player_image_counts: dict = {}
+    last_frame_taken: dict = {} 
     for frame, dt in video_batch:
         frame_num += 1
         print(f"\n{'='*20} Procesando frame {frame_num} {'='*20}\n")
@@ -273,7 +272,7 @@ def process_frame(
             print(f"Último jugador: {last_player.player_id}")
             speed_and_distance.process_track(
                 frame_num=frame_num,
-                track_id=last_player.player_id,
+                track_id=int(f'{last_player.player_id}'),
                 track=last_player,
                 db=db,
                 model_class=PlayerStateModel,
@@ -350,7 +349,7 @@ def process_frame(
             team_ball_control.append(team if team is not None else -1)
             print("Posesión marcada.")
 
-            player_image_counts, last_frame_taken = extract_player_images(
+            updated_player_image_counts, updated_last_frame_taken, saved_player_id = extract_player_images(
             frame=frame,
             frame_index=frame_num,
             player=last_player,
@@ -359,6 +358,10 @@ def process_frame(
             player_image_counts=player_image_counts,
             last_frame_taken=last_frame_taken,
             )
+            player_image_counts.update(updated_player_image_counts)
+            last_frame_taken.update(updated_last_frame_taken)
+            if saved_player_id is not None:
+                saved_player_ids.append(saved_player_id)
             print("Imágenes extraídas.")
             
             if all(count >= images_per_player for count in player_image_counts.values()):
@@ -371,4 +374,4 @@ def process_frame(
 
         if not metrics["memory_usage"]:
             metrics["memory_usage"].append(total_mem)
-    return frame_num, player_image_counts, metrics
+    return frame_num, saved_player_ids, metrics
